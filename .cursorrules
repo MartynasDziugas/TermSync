@@ -1,0 +1,23 @@
+# TermSync — Cursor Rules
+
+## Projektas
+Life Sciences reguliacinės terminologijos versijų valdymo platforma vertėjams.
+Du moduliai: MedDRA terminų atnaujinimas + dokumentų šablonų sinchronizavimas.
+
+## Techninė aplinka
+- Python 3.12+
+- PyTorch su MPS: device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+- Flask 3.x, SQLAlchemy 2.x
+- Sentence-BERT: paraphrase-multilingual-MiniLM-L12-v2
+
+## Kodo stilius
+- Švarus, modulinis (src/ struktūra)
+- Abstrakčios bazinės klasės: TerminologyImporter, BaseMLModel
+- Type hints visur
+- Visa DB komunikacija tik per SQLAlchemy ORM
+
+## Architektūros taisyklės
+- ML modeliai paveldimi iš BaseMLModel
+- Parseriai paveldimi iš TerminologyImporter
+- Servisų sluoksnis atskiriamas nuo Flask routes
+- Eksperimentų rezultatai saugomi DB ir experiments/hyperparameter_log.csv
