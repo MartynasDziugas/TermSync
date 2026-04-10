@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}TermSync — MedDRA Versijos{% endblock %}
+
+{% block content %}
+<h1>MedDRA Versijos</h1>
+
+<form action="/versions/import" method="POST" enctype="multipart/form-data">
+    <h2>Importuoti naują versiją</h2>
+    <input type="text" name="version_number" placeholder="pvz. 27.1" required>
+    <input type="file" name="file" accept=".asc" required>
+    <button type="submit">Importuoti</button>
+</form>
+
+<h2>Įkeltos versijos</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Versija</th>
+            <th>Kalba</th>
+            <th>Importuota</th>
+            <th>Aktyvi</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for version in versions %}
+        <tr>
+            <td>{{ version.version_number }}</td>
+            <td>{{ version.language }}</td>
+            <td>{{ version.imported_at.strftime('%Y-%m-%d') }}</td>
+            <td>{{ "Taip" if version.is_active else "Ne" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

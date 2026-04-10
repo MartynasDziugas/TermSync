@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}TermSync — Pradžia{% endblock %}
+
+{% block content %}
+<h1>TermSync</h1>
+<p>Reguliacinės terminologijos versijų valdymo platforma</p>
+
+<div class="dashboard">
+    <div class="card">
+        <h2>Aktyvi MedDRA versija</h2>
+        <p>{{ active_version or "Nėra importuotos versijos" }}</p>
+    </div>
+    <div class="card">
+        <h2>Šablonai</h2>
+        <p>Įkelta šablonų: {{ template_count }}</p>
+        <a href="/templates">Peržiūrėti</a>
+    </div>
+    <div class="card">
+        <h2>Sinchronizavimas</h2>
+        <p>Laukiančios užduotys: {{ pending_jobs }}</p>
+        <a href="/sync">Pradėti</a>
+    </div>
+</div>
+{% endblock %}
