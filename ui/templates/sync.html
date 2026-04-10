@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}TermSync — Sinchronizavimas{% endblock %}
+
+{% block content %}
+<h1>Sinchronizavimas</h1>
+
+<h2>Aktyvios užduotys</h2>
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Šablonas</th>
+            <th>MedDRA versija</th>
+            <th>Būsena</th>
+            <th>Atnaujinta segmentų</th>
+            <th>Veiksmai</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for job in jobs %}
+        <tr>
+            <td>{{ job.id }}</td>
+            <td>{{ job.template.name }}</td>
+            <td>{{ job.meddra_version.version_number }}</td>
+            <td>{{ job.status.value }}</td>
+            <td>{{ job.segments_updated }} / {{ job.segments_total }}</td>
+            <td>
+                {% if job.status.value == "pending" %}
+                <form action="/sync/run/{{ job.id }}" method="POST">
+                    <button type="submit">Vykdyti</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

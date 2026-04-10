@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}TermSync — Šablonai{% endblock %}
+
+{% block content %}
+<h1>Dokumentų šablonai</h1>
+
+<form action="/templates/upload" method="POST" enctype="multipart/form-data">
+    <h2>Įkelti naują šabloną</h2>
+    <input type="text" name="name" placeholder="Šablono pavadinimas" required>
+    <select name="language">
+        <option value="LT">Lietuvių</option>
+        <option value="EN">Anglų</option>
+    </select>
+    <input type="file" name="file" accept=".docx" required>
+    <button type="submit">Įkelti</button>
+</form>
+
+<h2>Įkelti šablonai</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Pavadinimas</th>
+            <th>Kalba</th>
+            <th>Įkelta</th>
+            <th>Veiksmai</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for template in templates %}
+        <tr>
+            <td>{{ template.name }}</td>
+            <td>{{ template.language }}</td>
+            <td>{{ template.created_at.strftime('%Y-%m-%d') }}</td>
+            <td><a href="/sync/create/{{ template.id }}">Sinchronizuoti</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

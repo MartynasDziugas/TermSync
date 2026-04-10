@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}TermSync — Klaida{% endblock %}
+
+{% block content %}
+<h1>Įvyko klaida</h1>
+
+<div class="card">
+    <p>{{ error_message or "Nežinoma klaida" }}</p>
+</div>
+
+<a href="/">Grįžti į pradžią</a>
+{% endblock %}
