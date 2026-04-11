@@ -106,16 +106,19 @@ def sync():
     try:
         with get_session() as session:
             jobs = session.query(SyncJob).all()
-            return render_template("sync.html", jobs=jobs)
+            templates = get_all_templates(session)
+            return render_template("sync.html", jobs=jobs, templates=templates)
     except Exception as e:
         return render_template("error.html", error_message=str(e))
 
 
-@bp.route("/sync/create/<int:template_id>", methods=["POST"])
-def create_job(template_id: int):
+@bp.route("/sync/create", methods=["POST"])
+def create_job():
     try:
+        old_template_id = int(request.form.get("old_template_id"))
+        new_template_id = int(request.form.get("new_template_id"))
         with get_session() as session:
-            create_sync_job(session, template_id)
+            create_sync_job(session, old_template_id, new_template_id)
         return redirect(url_for("ui.sync"))
     except Exception as e:
         return render_template("error.html", error_message=str(e))
