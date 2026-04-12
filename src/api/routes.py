@@ -148,8 +148,8 @@ def experiments():
 def export():
     try:
         with get_session() as session:
-            all_versions = session.query(MedDRAVersion).all()
-            return render_template("export.html", versions=all_versions)
+            all_templates = get_all_templates(session)
+            return render_template("export.html", templates=all_templates)
     except Exception as e:
         return render_template("error.html", error_message=str(e))
 
@@ -157,8 +157,8 @@ def export():
 @bp.route("/export/tmx", methods=["POST"])
 def export_tmx():
     try:
-        old_id = int(request.form.get("old_version"))
-        new_id = int(request.form.get("new_version"))
+        old_id = int(request.form.get("old_template_id"))
+        new_id = int(request.form.get("new_template_id"))
         output_path = config.UPLOAD_FOLDER / "export.tmx"
         with get_session() as session:
             export_to_tmx(session, old_id, new_id, output_path)
@@ -170,8 +170,8 @@ def export_tmx():
 @bp.route("/export/docx", methods=["POST"])
 def export_docx():
     try:
-        old_id = int(request.form.get("old_version"))
-        new_id = int(request.form.get("new_version"))
+        old_id = int(request.form.get("old_template_id"))
+        new_id = int(request.form.get("new_template_id"))
         output_path = config.UPLOAD_FOLDER / "export.docx"
         with get_session() as session:
             export_to_docx(session, old_id, new_id, output_path)
