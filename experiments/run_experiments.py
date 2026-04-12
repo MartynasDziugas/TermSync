@@ -72,3 +72,32 @@ with get_session() as session:
             dataset_description="10 medical terms, BERT embeddings",
         )
         print(f"exp_{i+1:02d} | {params} | {metrics}")
+        
+
+# --- BERT vs SVM palyginimas ---
+from sklearn.metrics.pairwise import cosine_similarity
+
+bert_scores = []
+for i in range(len(SAMPLE_TEXTS)):
+    for j in range(i + 1, len(SAMPLE_TEXTS)):
+        score = float(cosine_similarity(
+            X[i].reshape(1, -1), X[j].reshape(1, -1)
+        )[0][0])
+        bert_scores.append(score)
+
+bert_mean = round(sum(bert_scores) / len(bert_scores), 4)
+bert_std = round(float(np.std(bert_scores)), 4)
+
+with get_session() as session:
+    save_experiment(
+        session=session,
+        experiment_name="bert_baseline",
+        model_type="BERT",
+        hyperparameters={"model": "paraphrase-multilingual-MiniLM-L12-v2"},
+        metrics={
+            "cosine_similarity_mean": bert_mean,
+            "cosine_similarity_std": bert_std,
+        },
+        dataset_description="10 medical terms, pairwise cosine similarity",
+    )
+    print(f"BERT baseline | similarity_mean={bert_mean} | std={bert_std}")
