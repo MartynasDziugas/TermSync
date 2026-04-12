@@ -7,16 +7,18 @@
 
 <form action="/export/tmx" method="POST">
     <h2>Eksportuoti į TMX</h2>
-    <select name="old_version" required>
-        <option value="">Sena versija</option>
-        {% for version in versions %}
-        <option value="{{ version.id }}">{{ version.version_number }}</option>
+    <label>Senas QRD šablonas:</label>
+    <select name="old_template_id" required>
+        <option value="">Pasirinkti</option>
+        {% for template in templates %}
+        <option value="{{ template.id }}">{{ template.name }}</option>
         {% endfor %}
     </select>
-    <select name="new_version" required>
-        <option value="">Nauja versija</option>
-        {% for version in versions %}
-        <option value="{{ version.id }}">{{ version.version_number }}</option>
+    <label>Naujas QRD šablonas:</label>
+    <select name="new_template_id" required>
+        <option value="">Pasirinkti</option>
+        {% for template in templates %}
+        <option value="{{ template.id }}">{{ template.name }}</option>
         {% endfor %}
     </select>
     <button type="submit">Eksportuoti TMX</button>
@@ -24,16 +26,18 @@
 
 <form action="/export/docx" method="POST">
     <h2>Eksportuoti į DOCX</h2>
-    <select name="old_version" required>
-        <option value="">Sena versija</option>
-        {% for version in versions %}
-        <option value="{{ version.id }}">{{ version.version_number }}</option>
+    <label>Senas QRD šablonas:</label>
+    <select name="old_template_id" required>
+        <option value="">Pasirinkti</option>
+        {% for template in templates %}
+        <option value="{{ template.id }}">{{ template.name }}</option>
         {% endfor %}
     </select>
-    <select name="new_version" required>
-        <option value="">Nauja versija</option>
-        {% for version in versions %}
-        <option value="{{ version.id }}">{{ version.version_number }}</option>
+    <label>Naujas QRD šablonas:</label>
+    <select name="new_template_id" required>
+        <option value="">Pasirinkti</option>
+        {% for template in templates %}
+        <option value="{{ template.id }}">{{ template.name }}</option>
         {% endfor %}
     </select>
     <button type="submit">Eksportuoti DOCX</button>
