@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}TermSync — CSV partija #{{ batch.id }}{% endblock %}
+
+{% block content %}
+<h1>CSV partija #{{ batch.id }}</h1>
+<p><strong>Failas:</strong> {{ batch.filename }} &nbsp;|&nbsp; <strong>Iš viso eilučių:</strong> {{ total }} &nbsp;|&nbsp; <strong>Rodoma:</strong> iki {{ rows|length }} (iš {{ total }})</p>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Source</th>
+            <th>Target</th>
+            <th>Pastaba</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in rows %}
+        <tr>
+            <td>{{ r.row_index + 1 }}</td>
+            <td class="on-plain">{{ r.source_text }}</td>
+            <td class="on-plain">{{ r.target_text }}</td>
+            <td class="on-plain">{{ r.note or "—" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<p><a href="{{ url_for('ui.glossary') }}">Atgal į CSV importą</a></p>
+{% endblock %}

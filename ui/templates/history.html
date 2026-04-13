@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}TermSync — Istorija{% endblock %}
+
+{% block content %}
+<h1>Istorija (DB)</h1>
+<p>Čia saugomi <strong>mokymai</strong> (standarto poros + metrikos) ir <strong>peržiūros sesijos</strong> (vertėjo failai + lentelė su spalvomis). Galite grįžti kitą dieną per nuorodą.</p>
+
+<h2>Įkelti vertėjo tikrinimo dokumentai (diskas)</h2>
+<p class="hint">Aplankai <code>data/uploads/translator_check/&lt;id&gt;</code>: rodoma su <code>session_meta.json</code> arba bent <strong>du .docx</strong> faile (be meta — failų vardai iš disko). Jei nėra DB sesijos — tęskite iš <a href="{{ url_for('ui.check') }}">Vertėjo tikrinimo</a>.</p>
+{% if translator_disk_inventory %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Įkėlimo ID</th>
+            <th>Source failas</th>
+            <th>Target failas</th>
+            <th>DB sesija</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for d in translator_disk_inventory %}
+        <tr>
+            <td><code>{{ d.uid }}</code></td>
+            <td>{{ d.translator_src_name }}</td>
+            <td>{{ d.translator_tgt_name }}</td>
+            <td>{% if d.session_public_id %}<a href="{{ url_for('ui.check_session', sid=d.session_public_id) }}"><code>{{ d.session_public_id }}</code></a>{% else %}<span class="hint">—</span> <a href="{{ url_for('ui.check') }}">tęsti tikrinime</a>{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="hint">Įkėlimų <code>translator_check</code> šiuo metu nėra arba aplankuose nėra nei <code>session_meta.json</code>, nei dviejų .docx.</p>
+{% endif %}
+
+<h2>Standarto mokymai</h2>
+{% if training_runs %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Data</th>
+            <th>Job ID</th>
+            <th>Source failas</th>
+            <th>Target failas</th>
+            <th>Porų</th>
+            <th>SVM test</th>
+            <th>MLP test</th>
+            <th>Aktyvus</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in training_runs %}
+        <tr>
+            <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '—' }}</td>
+            <td><code>{{ r.job_id }}</code></td>
+            <td>{{ r.standard_src_name }}</td>
+            <td>{{ r.standard_tgt_name }}</td>
+            <td>{{ r.n_aligned_pairs }}</td>
+            <td>{{ "%.4f"|format(r.svm_test_accuracy) }}</td>
+            <td>{{ "%.4f"|format(r.mlp_test_accuracy) }}</td>
+            <td>{{ 'Taip' if r.is_active else 'Ne' }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>Įrašų dar nėra.</p>
+{% endif %}
+
+<h2>Vertėjo peržiūros</h2>
+{% if review_sessions %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Data</th>
+            <th>Sesijos ID</th>
+            <th>Standarto job</th>
+            <th>Vertėjo source</th>
+            <th>Vertėjo target</th>
+            <th>Veiksmai</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for s in review_sessions %}
+        <tr>
+            <td>{{ s.created_at.strftime('%Y-%m-%d %H:%M') if s.created_at else '—' }}</td>
+            <td><code>{{ s.public_id }}</code></td>
+            <td><code>{{ s.training_run_job_id }}</code></td>
+            <td>{{ s.translator_src_name }}</td>
+            <td>{{ s.translator_tgt_name }}</td>
+            <td class="review-actions-cell">
+                <p class="review-actions-links"><a href="{{ url_for('ui.check_session', sid=s.public_id) }}">Atidaryti</a></p>
+                <form method="post" action="{{ url_for('ui.review_session_delete', sid=s.public_id) }}" class="review-session-delete-form"
+                      onsubmit="return confirm('Pašalinti šią peržiūros sesiją iš DB? Pagal nutylėjimą vertėjo .docx failai lieka diske (nebent pažymėsite „ir trinti .docx“).');">
+                    <label class="checkbox-row review-delete-checkbox">
+                        <input type="checkbox" name="delete_files" value="on">
+                        ir trinti .docx
+                    </label>
+                    <button type="submit" class="button-small">Pašalinti sesiją</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>Peržiūrų dar nėra.</p>
+{% endif %}
+
+<h2>CSV glossoriai</h2>
+{% if glossary_batches %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Data</th>
+            <th>Failas</th>
+            <th>Eilučių</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for b in glossary_batches %}
+        <tr>
+            <td>{{ b.created_at.strftime('%Y-%m-%d %H:%M') if b.created_at else '—' }}</td>
+            <td>{{ b.filename }}</td>
+            <td>{{ b.row_count }}</td>
+            <td><a href="{{ url_for('ui.glossary_batch', batch_id=b.id) }}">Peržiūra</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>CSV importų dar nėra — <a href="{{ url_for('ui.glossary') }}">įkelti</a>.</p>
+{% endif %}
+
+<h2 id="duomenu-valymas">Duomenų valymas</h2>
+<p class="hint">Negrįžtami veiksmai. Pasirinkite vieną iš trijų atskirų variantų (arba eikite nuosekliai: pvz. pirma istorija, paskui tik įkėlimai).</p>
+
+<form method="post" action="{{ url_for('ui.history_maintenance') }}" class="stack-form maintenance-panel"
+      onsubmit="return confirm('Ištrinti VISUS standarto mokymus: DB įrašus, segmentus, bundle.joblib katalogus ir įkeltus standarto .docx? Vertėjo tikrinimas neveiks, kol neapmokysite iš naujo.');">
+    <input type="hidden" name="action" value="purge_training">
+    <h3>Standarto mokymai</h3>
+    <p class="hint">Įskaitant aktyvų modelį ir <code>data/standard_runs/&lt;job&gt;</code>, taip pat <code>data/uploads/standard_train</code>.</p>
+    <button type="submit" class="danger-button">Ištrinti standarto mokymo duomenis</button>
+</form>
+
+<form method="post" action="{{ url_for('ui.history_maintenance') }}" class="stack-form maintenance-panel"
+      onsubmit="return confirm('Išvalyti VISAS vertėjo peržiūros sesijas iš DB? Be varnelės failai lieka diske.');">
+    <input type="hidden" name="action" value="purge_review_sessions">
+    <h3>Visos vertėjo peržiūros (masinis valymas)</h3>
+    <p class="hint"><strong>Be varnelės</strong> — trinamos tik DB sesijos; įkelti <code>translator_check</code> .docx <strong>lieka</strong> diske. <strong>Su varnele</strong> — papildomai šalinami failai pagal kiekvienos sesijos kelius DB.</p>
+    <label class="checkbox-row">
+        <input type="checkbox" name="also_delete_files">
+        Kartu trinti visus susietus vertėjo .docx iš disko
+    </label>
+    <button type="submit">Išvalyti visas peržiūros sesijas (DB)</button>
+</form>
+
+<form method="post" action="{{ url_for('ui.history_maintenance') }}" class="stack-form maintenance-panel"
+      onsubmit="return confirm('Ištrinti visą aplanką data/uploads/translator_check (visi įkelti tikrinimo dokumentai)? DB sesijos NEBUS trintos — nuorodos į failus gali tapti nebegaliojančios.');">
+    <input type="hidden" name="action" value="purge_review_uploads">
+    <h3>Tik įkelti tikrinimo dokumentai</h3>
+    <p class="hint">Tuščias katalogas po valymo; lentelė su spalvomis iš DB lieka, kol neištrinsite sesijų aukščiau.</p>
+    <button type="submit">Išvalyti tik translator_check įkėlimus</button>
+</form>
+
+<p><a href="{{ url_for('ui.index') }}">Pradžia</a></p>
+{% endblock %}

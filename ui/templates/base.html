@@ -7,15 +7,26 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
+    <div id="global-loading-bar" aria-hidden="true"></div>
     <nav>
-        <a href="/">Pradžia</a>
-        <a href="/versions">Versijos</a>
-        <a href="/templates">Šablonai</a>
-        <a href="/sync">Sinchronizavimas</a>
-        <a href="/experiments">Eksperimentai</a>
+        <a href="{{ url_for('ui.index') }}">Pradžia</a>
+        <a href="{{ url_for('ui.train') }}">Standarto mokymas</a>
+        <a href="{{ url_for('ui.check') }}">Vertėjo tikrinimas</a>
+        <a href="{{ url_for('ui.history') }}">Istorija</a>
+        <a href="{{ url_for('ui.glossary') }}">CSV glossorius</a>
     </nav>
     <main>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-list" role="status">
+            {% for category, message in messages %}
+            <p class="flash flash-{{ category }}">{{ message }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
         {% block content %}{% endblock %}
     </main>
+    <script src="{{ url_for('static', filename='js/loading.js') }}"></script>
 </body>
 </html>

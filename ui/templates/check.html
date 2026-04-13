@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}TermSync — Vertėjo tikrinimas{% endblock %}
+
+{% block content %}
+<h1>Vertėjo tikrinimas</h1>
+<p>Palyginimas su paskutiniu įrašytu standarto modeliu. Kiekviena vertėjo pastraipa susiejama su standarto pora; <strong>ta pati eilutės spalva</strong> žymi neatitikimus: standarto stulpeliuose — standarto teksto dalys, vertėjo <strong>source ir target</strong> — vertėjo dalys (difflib + žodžio lygis). Penktoje skiltyje — <strong>CSV žodynas</strong>. Stipresnis porinimas: <code>TERMSYNC_REVIEW_PAIR_ALIGN_MODE=positional</code> (žr. <code>config.py</code>).</p>
+<p class="hint">Embedding režime: slenksčiai <code>REVIEW_PAIR_ACCEPT_*</code>, <code>REVIEW_PAIR_SRC_TOP1_TOP2_MARGIN</code> (<code>config.py</code>).</p>
+
+{% if not has_model %}
+<p class="flash flash-error" role="alert">Pirmiausia paleiskite <a href="{{ url_for('ui.train') }}">Standarto mokymą</a>.</p>
+{% endif %}
+
+{% if error_message %}
+<p class="flash flash-error" role="alert">{{ error_message }}</p>
+{% endif %}
+
+{% if has_model and resumable_uploads %}
+<section class="maintenance-panel resume-uploads-block">
+    <h2>Nauja sesija su jau įkeltais failais</h2>
+    <p class="hint">Šie įkėlimai dar yra diske (<code>translator_check</code>), bet DB sesija jiems nebeegzistuoja (pvz. pašalinote tik įrašą). Galite sugeneruoti peržiūrą iš naujo <strong>be pakartotinio failų įkėlimo</strong>.</p>
+    {% for r in resumable_uploads %}
+    <form method="post" action="{{ url_for('ui.check_regenerate') }}" class="stack-form resume-upload-row">
+        <input type="hidden" name="upload_uid" value="{{ r.uid }}">
+        <p class="resume-upload-label"><strong>{{ r.translator_src_name }}</strong> + <strong>{{ r.translator_tgt_name }}</strong> <code class="resume-uid">{{ r.uid }}</code></p>
+        {% if glossary_count and glossary_count > 0 %}
+        <label class="checkbox-row">
+            <input type="checkbox" name="use_glossary" checked>
+            Naudoti CSV žodyną
+        </label>
+        {% endif %}
+        <button type="submit">Generuoti naują sesiją su šiais failais</button>
+    </form>
+    {% endfor %}
+</section>
+{% endif %}
+
+{% if has_model %}
+<form method="post" enctype="multipart/form-data" class="stack-form">
+    <label>Vertėjo source .docx</label>
+    <input type="file" name="translator_src" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required>
+
+    <label>Vertėjo target .docx</label>
+    <input type="file" name="translator_tgt" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required>
+
+    {% if glossary_count and glossary_count > 0 %}
+    <label class="checkbox-row">
+        <input type="checkbox" name="use_glossary" checked>
+        Naudoti CSV žodyną ({{ glossary_count }} eil. DB) — ilgesni terminai pirmi, nepersidengiantys; target tikrinamas kaip posakinė eilutė (casefold + tarpai).
+    </label>
+    {% endif %}
+
+    <button type="submit">Generuoti peržiūrą</button>
+</form>
+{% endif %}
+
+{% if session_saved %}
+<p class="hint">Sesija įrašyta į DB. Nuoroda vėlesniam atidarymui: <code>{{ request.url_root.rstrip('/') }}{{ url_for('ui.check_session', sid=session_public_id) }}</code></p>
+{% endif %}
+
+{% if rows is not none %}
+<p class="hint">Modelis: <code>{{ run_id }}</code>. Eilutės be spalvų — nežymėtos kaip neatitinkančios (pagal SVM ir panašumą). CSV žymėjimas: <span class="hl-gloss">terminas</span> skiltyje „Glossorius (CSV)“ — ne standarto lentelės spalvos.</p>
+<p class="hint">Iš DB atidarytos <strong>senos</strong> sesijos rodo įrašytą lentelę tokią, kokia buvo sugeneruota anksčiau — pakartokite „Generuoti peržiūrą“ su tais pačiais failais, jei norite naujos porų / slenksčių logikos.</p>
+<p class="hint"><a href="{{ url_for('ui.history') }}">Istorija</a> — visos išsaugotos peržiūros. Duomenų valymas (sesijos, įkėlimai, standartas): <a href="{{ url_for('ui.history') }}#duomenu-valymas">Istorija → duomenų valymas</a>.</p>
+{% if session_public_id %}
+<p><a class="button-link" href="{{ url_for('ui.check_session_export', sid=session_public_id) }}">Atsisiųsti CSV (grynasis tekstas)</a></p>
+{% endif %}
+<div class="review-grid-wrap">
+    <table class="review-grid">
+        <thead>
+            <tr>
+                <th>Standarto source</th>
+                <th>Standarto target</th>
+                <th>Vertėjo source</th>
+                <th>Vertėjo target</th>
+                <th>Glossorius (CSV)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr class="{% if row.flagged %}review-flagged{% endif %}">
+                <td class="review-cell">{{ row.std_src_html|safe }}</td>
+                <td class="review-cell">{{ row.std_tgt_html|safe }}</td>
+                <td class="review-cell">{{ row.trans_src_html|safe }}</td>
+                <td class="review-cell">{{ row.trans_tgt_html|safe }}</td>
+                <td class="review-cell review-cell-gloss">{{ row.glossary_html|safe }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

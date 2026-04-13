@@ -1,53 +1,62 @@
 # TermSync
 
-Life Sciences reguliacinės terminologijos versijų valdymo platforma vertėjams.
+Terminologijos ir tekstų versijų įrankis vertėjams ir lokalizacijai (tinka ir gyvybės mokslams, ir kitoms sritims).
 
 ## Apie projektą
 
-TermSync sprendžia du pagrindinius Life Sciences vertėjų skausmus:
+1. **MedDRA (ar panašūs žodynai)** — importas, versijų skirtumai, „lokalizacijos gidas“: ką atnaujinti vertėjo kalbos žodyne pagal oficialių EN versijų pokyčius.
 
-1. **Terminologijos atnaujinimas** — MedDRA žodynas atnaujinamas 2x per metus (~1000+ pakeitimų). TermSync automatiškai identifikuoja kas pasikeitė ir kur reikia atnaujinti vertimus.
+2. **Old & New** — du tos pačios kalbos failai (Word, PDF, TMX, XLIFF, Excel, …): indeksinis palyginimas, BERT slenkstis, **Show** su spalvota paraleline peržiūra.
 
-2. **Dokumentų šablonų sinchronizavimas** — EMA, FDA, ICH reguliacinių dokumentų šablonai (QRD templates) keičiasi. TermSync lygina dvi šablono versijas ir parodo vertėjui tiksliai kas pasikeitė.
-
-## Du pagrindiniai moduliai
-
-### Modulis A — Terminologijos atnaujinimas
-- Importuoja MedDRA ASC failus
-- Aptinka pakeitimus tarp versijų naudojant BERT panašumo skaičiavimą
-- Eksportuoja pakeitimus į TMX formatą CAT įrankiams
-
-### Modulis B — Dokumentų šablonų sinchronizavimas
-- Importuoja Word (.docx) šablonus
-- Lygina dvi QRD šablono versijas segmentas po segmento
-- Pažymi pasikeitusius segmentus vertėjui
+3. **Source peržiūra** — keturi .docx (reference + source/target) su spalvinimu ir pasirenkamu MedDRA žymėjimu.
 
 ## Techninė aplinka
 
 - Python 3.12+
 - Flask 3.x — web framework
 - SQLAlchemy 2.x — duomenų bazė (SQLite)
-- Sentence-BERT (paraphrase-multilingual-MiniLM-L12-v2) — semantinis panašumas
-- SVM (sklearn) — terminų klasifikavimas
+- Sentence-BERT (`paraphrase-multilingual-MiniLM-L12-v2`) — semantinis panašumas
+- scikit-learn **RBF SVC** — standarto porų klasifikacija (embeddingų požymiai; aprašyta `src/models/svm_bundle.py`, treniruojama `standard_train_service`)
+- PyTorch MLP (`src/models/mlp_classifier.py`) — greitos testinės metrikos mokyme
 - PyTorch MPS — Apple Silicon GPU palaikymas
 
 ## Projekto struktūra
 
-TermSync/ ├── app.py # Flask aplikacijos paleidimas ├── config.py # Konfigūracija ├── src/ │ ├── database/ # SQLAlchemy modeliai, ryšys, užklausos │ ├── parsers/ # MedDRA, TMX, DOCX parseriai │ ├── models/ # BERT ir SVM ML modeliai │ ├── services/ # Verslo logika │ └── api/ # Flask routes ├── ui/ │ ├── templates/ # HTML puslapiai (Jinja2) │ └── static/ # CSS, JS, grafikai └── experiments/ # ML eksperimentai ir grafikai
-
+```
+TermSync/
+├── app.py                 # Flask paleidimas
+├── config.py
+├── src/
+│   ├── database/          # SQLAlchemy ORM, ryšys
+│   ├── parsers/          # MedDRA, TMX, DOCX, …
+│   ├── models/           # ML: BaseMLModel, BertModel, MLPClassifier, svm_bundle (SVC + joblib bundle tipai)
+│   ├── services/         # Mokymas, peržiūra, CSV žodynas, eksportas
+│   └── api/              # Flask maršrutai
+├── ui/
+│   ├── templates/
+│   └── static/
+├── data/                 # DB, įkėlimai, standard_runs / bundle.joblib
+└── experiments/
+```
 
 ## Paleidimas
 
 ```bash
 python -m venv venv
-source venv/bin/activate
+source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 python app.py
+```
 
 Atidaryti naršyklėje: http://localhost:5000
 
-ML eksperimentai
+## ML eksperimentai
+
+```bash
 python experiments/run_experiments.py
 python experiments/plot_results.py
-Autorius
+```
+
+## Autorius
+
 Martynas Dziugas — Baigiamasis darbas 2026

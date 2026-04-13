@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}TermSync — Standarto mokymas{% endblock %}
+
+{% block content %}
+<h1>Standarto mokymas</h1>
+<p>Įkelkite <strong>du sutampančius</strong> standarto .docx (ta pati pastraipų tvarka). Dirbtinės blogos poros, 80/20 train/test, SVM + MLP ({{ quick_epochs }} epochų), tada <strong>SVM per visą imtį</strong> įrašomas į <code>data/standard_runs/</code>.</p>
+
+{% if error_message %}
+<p class="flash flash-error" role="alert">{{ error_message }}</p>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" class="stack-form">
+    <label>Standarto source .docx</label>
+    <input type="file" name="standard_src" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required>
+
+    <label>Standarto target .docx</label>
+    <input type="file" name="standard_tgt" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required>
+
+    <button type="submit">Paleisti mokymą fone</button>
+</form>
+{% endblock %}
