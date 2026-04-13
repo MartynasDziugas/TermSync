@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}TermSync — CSV glossorius{% endblock %}
+
+{% block content %}
+<h1>CSV → duomenų bazė</h1>
+<p>Įkelkite terminų lentelę <strong>.csv</strong> (UTF-8). Stulpeliai: <code>source</code> / <code>target</code> arba <code>en</code> / <code>lt</code>, neprivaloma <code>note</code> / <code>pastaba</code>. Jei antraštės nėra — žymėkite „be antraštės“: 1 stulp. = source, 2 = target, 3 = pastaba.</p>
+
+{% if error_message %}
+<p class="flash flash-error" role="alert">{{ error_message }}</p>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" class="stack-form">
+    <label>CSV failas</label>
+    <input type="file" name="csv_file" accept=".csv,text/csv" required>
+
+    <fieldset class="radio-row">
+        <legend>Antraštė</legend>
+        <label><input type="radio" name="has_header" value="1" checked> Pirmoji eilutė — stulpelių vardai</label>
+        <label><input type="radio" name="has_header" value="0"> Be antraštės (tik duomenys)</label>
+    </fieldset>
+
+    <button type="submit">Importuoti į DB</button>
+</form>
+
+<h2>Paskutinės partijos</h2>
+{% if batches %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Data</th>
+            <th>Failas</th>
+            <th>Eilučių</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for b in batches %}
+        <tr>
+            <td>{{ b.created_at.strftime('%Y-%m-%d %H:%M') if b.created_at else '—' }}</td>
+            <td>{{ b.filename }}</td>
+            <td>{{ b.row_count }}</td>
+            <td><a href="{{ url_for('ui.glossary_batch', batch_id=b.id) }}">Peržiūra</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>Įrašų dar nėra.</p>
+{% endif %}
+
+<p><a href="{{ url_for('ui.index') }}">Pradžia</a></p>
+{% endblock %}

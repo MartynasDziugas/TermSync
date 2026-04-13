@@ -1,0 +1,1 @@
+"""Duomenų bazė (SQLAlchemy ORM)."""

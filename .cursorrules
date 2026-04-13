@@ -1,23 +1,22 @@
 # TermSync — Cursor Rules
 
-## Projektas
-Life Sciences reguliacinės terminologijos versijų valdymo platforma vertėjams.
-Du moduliai: MedDRA terminų atnaujinimas + dokumentų šablonų sinchronizavimas.
+## Project
+Standarto .docx poromis apmokomas SVM (BERT požymiai, 80/20, dirbtinės blogos poros), vertėjo source/target tikrinimas su spalvotais fragmentais, **CSV glossorių importas į DB** ir peržiūros eksportas į CSV. **SQLite + SQLAlchemy ORM** saugo mokymus, standarto segmentus, peržiūras ir CSV partijas.
 
-## Techninė aplinka
+## Stack
 - Python 3.12+
-- PyTorch su MPS: device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-- Flask 3.x, SQLAlchemy 2.x
+- Flask 3.x, **SQLAlchemy 2.x** (ORM, `src/database/`)
+- PyTorch / sentence-transformers (BERT)
 - Sentence-BERT: paraphrase-multilingual-MiniLM-L12-v2
 
-## Kodo stilius
-- Švarus, modulinis (src/ struktūra)
-- Abstrakčios bazinės klasės: TerminologyImporter, BaseMLModel
-- Type hints visur
-- Visa DB komunikacija tik per SQLAlchemy ORM
+## Code style
+- Švarus modulinis `src/`
+- `BaseMLModel` BERT klasei
+- Type hints
+- **Visa DB komunikacija per SQLAlchemy ORM** (sesijos `get_session()`)
 
-## Architektūros taisyklės
-- ML modeliai paveldimi iš BaseMLModel
-- Parseriai paveldimi iš TerminologyImporter
-- Servisų sluoksnis atskiriamas nuo Flask routes
-- Eksperimentų rezultatai saugomi DB ir experiments/hyperparameter_log.csv
+## Architecture
+- ML: `BertModel` + sklearn SVM; MLP mokymo metrikoms
+- `.docx` pastraipos: `DocxParser`
+- Artefaktai diske: `data/standard_runs/<job_id>/bundle.joblib`
+- Įrašymas: `src/services/persist_service.py`

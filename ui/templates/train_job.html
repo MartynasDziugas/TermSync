@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}TermSync — Mokymas vyksta{% endblock %}
+
+{% block content %}
+<h1>Mokymas vyksta</h1>
+<p>Job: <code>{{ job_id }}</code> — būsena atnaujinama automatiškai.</p>
+
+<div class="pair-train-status" aria-live="polite">
+    <p id="status-line" class="status-message">Skaičiuojama…</p>
+    <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-wrap">
+        <div class="progress-bar" id="progress-bar" style="width: 0%;"></div>
+    </div>
+    <div id="result-area" class="result-area hidden"></div>
+    <p id="error-line" class="flash flash-error hidden" role="alert"></p>
+</div>
+
+<p><a href="{{ url_for('ui.train') }}">Naujas paleidimas</a> · <a href="{{ url_for('ui.index') }}">Pradžia</a></p>
+
+<script>
+(function () {
+    const apiUrl = {{ url_for('ui.train_api', job_id=job_id) | tojson }};
+    const statusEl = document.getElementById('status-line');
+    const barEl = document.getElementById('progress-bar');
+    const wrapEl = document.getElementById('progress-wrap');
+    const resultEl = document.getElementById('result-area');
+    const errEl = document.getElementById('error-line');
+
+    function showResult(data) {
+        const r = data.result;
+        if (!r) return;
+        resultEl.classList.remove('hidden');
+        resultEl.innerHTML =
+            '<h2>Test rinkinys (80/20)</h2>' +
+            '<ul>' +
+            '<li>SVM accuracy (test): <strong>' + r.svm_test_accuracy + '</strong></li>' +
+            '<li>MLP accuracy (test): <strong>' + r.mlp_test_accuracy + '</strong> (' + r.quick_mlp_epochs + ' epochų)</li>' +
+            '<li>Standarto porų: ' + r.n_aligned_pairs + '</li>' +
+            '<li>Modelis: <code>' + (r.artifact_path || '') + '</code></li>' +
+            '</ul>';
+    }
+
+    async function poll() {
+        try {
+            const res = await fetch(apiUrl, { headers: { 'Accept': 'application/json' } });
+            if (!res.ok) {
+                statusEl.textContent = 'HTTP ' + res.status;
+                return;
+            }
+            const data = await res.json();
+            statusEl.textContent = data.message || data.status;
+            const p = typeof data.progress === 'number' ? data.progress : 0;
+            barEl.style.width = p + '%';
+            wrapEl.setAttribute('aria-valuenow', String(p));
+            if (data.status === 'done') {
+                showResult(data);
+                return;
+            }
+            if (data.status === 'error') {
+                errEl.classList.remove('hidden');
+                errEl.textContent = data.error || 'Klaida';
+                statusEl.textContent = 'Klaida.';
+                return;
+            }
+            setTimeout(poll, 900);
+        } catch (e) {
+            statusEl.textContent = 'Tinklo klaida: ' + e;
+        }
+    }
+    poll();
+})();
+</script>
+{% endblock %}

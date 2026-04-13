@@ -1,180 +1,398 @@
-from flask import Blueprint, request, render_template, redirect, url_for
-from src.database.connection import get_session, init_db
-from src.database.queries import get_all_templates, get_pending_sync_jobs, get_active_version
-from src.database.models import MedDRAVersion, SyncJob
-from src.services.term_update_service import import_version, detect_changes
-from src.services.doc_sync_service import create_sync_job, run_sync_job
-from src.services.diff_service import get_diff_summary
-from src.services.export_service import export_to_tmx, export_to_docx
-from src.services.experiment_service import get_all_experiments
-from src.parsers.meddra import MedDRAImporter
-from src.parsers.template_importer import TemplateImporter
+import re
+import uuid
+from io import StringIO
+from pathlib import Path
+
+from flask import (
+    Blueprint,
+    Response,
+    abort,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
+from werkzeug.utils import secure_filename
+
 from config import config
+from src.parsers.docx_parser import DocxParser
+from src.services.csv_glossary_service import parse_glossary_csv
+from src.services.data_maintenance_service import (
+    purge_review_sessions,
+    purge_training_data,
+    purge_translator_check_uploads,
+)
+from src.services.persist_service import (
+    count_all_glossary_rows,
+    count_glossary_rows,
+    delete_review_session,
+    get_glossary_batch,
+    get_review_session,
+    list_glossary_batches,
+    list_glossary_rows,
+    list_review_history,
+    list_training_history,
+    persist_glossary_csv,
+    persist_review_session,
+    review_rows_from_session,
+)
+from src.services.review_export_service import review_rows_to_csv_bytes
+from src.services.standard_train_service import load_latest_bundle
+from src.services.translator_resume_service import (
+    list_resumable_translator_uploads,
+    list_translator_disk_inventory,
+    resolve_paths_for_regenerate,
+    write_translator_session_meta,
+)
+from src.services.translator_review_service import run_translator_review
 
 bp = Blueprint("ui", __name__)
+
+TRAIN_JOB_RE = re.compile(r"^[a-f0-9]{16}$")
+REVIEW_SESSION_RE = re.compile(r"^[a-f0-9]{32}$")
+
+
+def _train_worker(
+    job_id: str,
+    left_path: Path,
+    right_path: Path,
+    src_name: str,
+    tgt_name: str,
+) -> None:
+    from src.services.standard_train_service import run_standard_train_job
+
+    run_standard_train_job(
+        left_path,
+        right_path,
+        job_id,
+        display_src_name=src_name,
+        display_tgt_name=tgt_name,
+    )
 
 
 @bp.route("/")
 def index():
+    latest = load_latest_bundle()
+    has_model = latest is not None
+    run_id = latest[1] if latest else None
+    return render_template("index.html", has_model=has_model, run_id=run_id)
+
+
+@bp.route("/history")
+def history():
+    training_runs = list_training_history()
+    review_sessions = list_review_history()
+    glossary_batches = list_glossary_batches()
+    return render_template(
+        "history.html",
+        training_runs=training_runs,
+        review_sessions=review_sessions,
+        glossary_batches=glossary_batches,
+        translator_disk_inventory=list_translator_disk_inventory(),
+    )
+
+
+@bp.route("/history/maintenance", methods=["POST"])
+def history_maintenance():
+    action = request.form.get("action", "")
     try:
-        with get_session() as session:
-            version = get_active_version(session)
-            templates = get_all_templates(session)
-            jobs = get_pending_sync_jobs(session)
-            return render_template("index.html",
-                active_version=version.version_number if version else None,
-                template_count=len(templates),
-                pending_jobs=len(jobs),
+        if action == "purge_training":
+            stats = purge_training_data()
+            flash(
+                f"Ištrinta standarto mokymų: {stats['training_runs']}; "
+                f"pašalinta artefaktų aplankų: {stats['artifact_job_dirs']}.",
+                "success",
             )
+        elif action == "purge_review_sessions":
+            also = request.form.get("also_delete_files") == "on"
+            stats = purge_review_sessions(delete_files=also)
+            flash(
+                f"Pašalinta peržiūros sesijų: {stats['sessions']}; "
+                f"pašalinta failų iš disko: {stats['files']}.",
+                "success",
+            )
+        elif action == "purge_review_uploads":
+            stats = purge_translator_check_uploads()
+            flash(
+                f"Išvalyta translator_check įrašų: {stats['entries']}. "
+                "DB sesijos nebuvo trintos (lentelė vis dar rodo senas nuorodas).",
+                "success",
+            )
+        else:
+            flash("Nežinomas veiksmas.", "error")
     except Exception as e:
-        return render_template("error.html", error_message=str(e))
+        flash(str(e), "error")
+    return redirect(url_for("ui.history") + "#duomenu-valymas")
 
 
-@bp.route("/versions")
-def versions():
+@bp.route("/history/review-session/<sid>/delete", methods=["POST"])
+def review_session_delete(sid: str):
+    if not REVIEW_SESSION_RE.match(sid):
+        abort(404)
+    also_files = request.form.get("delete_files") == "on"
+    if not delete_review_session(sid, delete_files=also_files):
+        abort(404)
+    flash(
+        "Sesija pašalinta iš DB."
+        + (
+            " Pašalinti ir susieti .docx failai."
+            if also_files
+            else " Vertėjo .docx liko diske — puslapyje „Vertėjo tikrinimas“ galite „Generuoti naują sesiją su jau įkeltais failais“."
+        ),
+        "success",
+    )
+    return redirect(url_for("ui.history"))
+
+
+@bp.route("/train", methods=["GET", "POST"])
+def train():
+    if request.method == "GET":
+        return render_template(
+            "train.html",
+            error_message=None,
+            quick_epochs=config.QUICK_MLP_EPOCHS,
+        )
     try:
-        with get_session() as session:
-            all_versions = session.query(MedDRAVersion).all()
-            return render_template("versions.html", versions=all_versions)
+        from src.services.pair_train_job_store import create_job, run_in_thread
+
+        left_f = request.files.get("standard_src")
+        right_f = request.files.get("standard_tgt")
+        if not left_f or not left_f.filename or not right_f or not right_f.filename:
+            raise ValueError("Įkelkite abu standarto .docx failus (source ir target).")
+        job_id = create_job()
+        job_dir = config.UPLOAD_FOLDER / "standard_train" / job_id
+        job_dir.mkdir(parents=True, exist_ok=True)
+        left_path = job_dir / "standard_src.docx"
+        right_path = job_dir / "standard_tgt.docx"
+        left_f.save(left_path)
+        right_f.save(right_path)
+        for p in (left_path, right_path):
+            dp = DocxParser(p)
+            if not dp.validate():
+                raise ValueError(f"Netinkamas .docx: {p.name}")
+        src_nm = secure_filename(left_f.filename)
+        tgt_nm = secure_filename(right_f.filename)
+        run_in_thread(_train_worker, (job_id, left_path, right_path, src_nm, tgt_nm))
+        return redirect(url_for("ui.train_job", job_id=job_id))
     except Exception as e:
-        return render_template("error.html", error_message=str(e))
+        return render_template(
+            "train.html",
+            error_message=str(e),
+            quick_epochs=config.QUICK_MLP_EPOCHS,
+        )
 
 
-@bp.route("/versions/import", methods=["POST"])
-def import_meddra():
+@bp.route("/train/job/<job_id>")
+def train_job(job_id: str):
+    if not TRAIN_JOB_RE.match(job_id):
+        abort(404)
+    return render_template("train_job.html", job_id=job_id)
+
+
+@bp.route("/train/api/<job_id>")
+def train_api(job_id: str):
+    if not TRAIN_JOB_RE.match(job_id):
+        abort(404)
+    from src.services.pair_train_job_store import get_job
+
+    row = get_job(job_id)
+    if row is None:
+        abort(404)
+    return jsonify(row)
+
+
+@bp.route("/check", methods=["GET", "POST"])
+def check():
+    has_model = load_latest_bundle() is not None
+    if request.method == "GET":
+        return render_template(
+            "check.html",
+            has_model=has_model,
+            error_message=None,
+            rows=None,
+            run_id=None,
+            session_public_id=None,
+            session_saved=False,
+            glossary_count=count_all_glossary_rows(),
+            resumable_uploads=list_resumable_translator_uploads(),
+        )
     try:
-        version_number = request.form.get("version_number")
-        file = request.files.get("file")
-        upload_path = config.UPLOAD_FOLDER / file.filename
-        upload_path.parent.mkdir(parents=True, exist_ok=True)
-        file.save(upload_path)
-        importer = MedDRAImporter(upload_path)
-        if not importer.validate():
-            return render_template("error.html", error_message="Netinkamas failas")
-        terms = importer.parse()
-        with get_session() as session:
-            import_version(session, version_number, terms)
-        return redirect(url_for("ui.versions"))
+        if not has_model:
+            raise ValueError("Pirmiausia paleiskite mokymą su standarto poromis.")
+        ts_f = request.files.get("translator_src")
+        tt_f = request.files.get("translator_tgt")
+        if not ts_f or not ts_f.filename or not tt_f or not tt_f.filename:
+            raise ValueError("Įkelkite vertėjo source ir target .docx failus.")
+        uid = uuid.uuid4().hex[:12]
+        base = config.UPLOAD_FOLDER / "translator_check" / uid
+        base.mkdir(parents=True, exist_ok=True)
+        ts_path = base / secure_filename(ts_f.filename or "src.docx")
+        tt_path = base / secure_filename(tt_f.filename or "tgt.docx")
+        ts_f.save(ts_path)
+        tt_f.save(tt_path)
+        for p in (ts_path, tt_path):
+            if not DocxParser(p).validate():
+                raise ValueError(f"Netinkamas .docx: {p.name}")
+        write_translator_session_meta(
+            base,
+            translator_src_display=secure_filename(ts_f.filename),
+            translator_tgt_display=secure_filename(tt_f.filename),
+            src_disk_name=ts_path.name,
+            tgt_disk_name=tt_path.name,
+        )
+        use_glossary = request.form.get("use_glossary") == "on"
+        rows, run_id = run_translator_review(
+            ts_path, tt_path, use_glossary=use_glossary
+        )
+        public_id = uuid.uuid4().hex
+        persist_review_session(
+            public_id=public_id,
+            training_run_job_id=run_id,
+            translator_src_name=secure_filename(ts_f.filename),
+            translator_tgt_name=secure_filename(tt_f.filename),
+            translator_src_path=ts_path,
+            translator_tgt_path=tt_path,
+            rows=rows,
+        )
+        return redirect(url_for("ui.check_session", sid=public_id))
     except Exception as e:
-        return render_template("error.html", error_message=str(e))
+        return render_template(
+            "check.html",
+            has_model=has_model,
+            error_message=str(e),
+            rows=None,
+            run_id=None,
+            session_public_id=None,
+            session_saved=False,
+            glossary_count=count_all_glossary_rows(),
+            resumable_uploads=list_resumable_translator_uploads(),
+        )
 
 
-@bp.route("/versions/diff", methods=["GET", "POST"])
-def diff():
+@bp.route("/check/regenerate", methods=["POST"])
+def check_regenerate():
+    has_model = load_latest_bundle() is not None
+    uid = (request.form.get("upload_uid") or "").strip()
+    if not re.match(r"^[a-f0-9]{12}$", uid):
+        flash("Netinkamas įkėlimo ID.", "error")
+        return redirect(url_for("ui.check"))
+    if not has_model:
+        flash("Nėra aktyvaus standarto modelio.", "error")
+        return redirect(url_for("ui.check"))
+    resolved = resolve_paths_for_regenerate(uid)
+    if resolved is None:
+        flash("Įkėlimas nerastas arba trūksta session_meta.json / .docx.", "error")
+        return redirect(url_for("ui.check"))
+    ts_path, tt_path, src_nm, tgt_nm = resolved
     try:
-        with get_session() as session:
-            all_versions = session.query(MedDRAVersion).all()
-            summary = None
-            if request.method == "POST":
-                old_id = int(request.form.get("old_version"))
-                new_id = int(request.form.get("new_version"))
-                summary = get_diff_summary(session, old_id, new_id)
-            return render_template("diff.html", versions=all_versions, summary=summary)
+        for p in (ts_path, tt_path):
+            if not DocxParser(p).validate():
+                raise ValueError(f"Netinkamas .docx: {p.name}")
+        use_glossary = request.form.get("use_glossary") == "on"
+        rows, run_id = run_translator_review(
+            ts_path, tt_path, use_glossary=use_glossary
+        )
+        public_id = uuid.uuid4().hex
+        persist_review_session(
+            public_id=public_id,
+            training_run_job_id=run_id,
+            translator_src_name=src_nm,
+            translator_tgt_name=tgt_nm,
+            translator_src_path=ts_path,
+            translator_tgt_path=tt_path,
+            rows=rows,
+        )
+        return redirect(url_for("ui.check_session", sid=public_id))
     except Exception as e:
-        return render_template("error.html", error_message=str(e))
+        flash(str(e), "error")
+        return redirect(url_for("ui.check"))
 
 
-@bp.route("/templates")
-def templates():
+@bp.route("/check/session/<sid>")
+def check_session(sid: str):
+    if not REVIEW_SESSION_RE.match(sid):
+        abort(404)
+    rec = get_review_session(sid)
+    if rec is None:
+        abort(404)
+    rows = review_rows_from_session(rec)
+    return render_template(
+        "check.html",
+        has_model=True,
+        error_message=None,
+        rows=rows,
+        run_id=rec.training_run_job_id,
+        session_public_id=rec.public_id,
+        session_saved=True,
+        glossary_count=count_all_glossary_rows(),
+        resumable_uploads=list_resumable_translator_uploads(),
+    )
+
+
+@bp.route("/check/session/<sid>/export.csv")
+def check_session_export(sid: str):
+    if not REVIEW_SESSION_RE.match(sid):
+        abort(404)
+    rec = get_review_session(sid)
+    if rec is None:
+        abort(404)
+    rows = review_rows_from_session(rec)
+    data = review_rows_to_csv_bytes(rows)
+    name = f"review_{sid}.csv"
+    return Response(
+        data,
+        mimetype="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{name}"',
+        },
+    )
+
+
+@bp.route("/glossary", methods=["GET", "POST"])
+def glossary():
+    batches = list_glossary_batches()
+    if request.method == "GET":
+        return render_template("glossary.html", batches=batches, error_message=None)
     try:
-        with get_session() as session:
-            all_templates = get_all_templates(session)
-            return render_template("templates.html", templates=all_templates)
+        up = request.files.get("csv_file")
+        if not up or not up.filename:
+            raise ValueError("Pasirinkite CSV failą.")
+        if not up.filename.lower().endswith(".csv"):
+            raise ValueError("Leidžiamas tik .csv formatas.")
+        has_header = request.form.get("has_header", "1") == "1"
+        uid = uuid.uuid4().hex[:10]
+        dest_dir = config.UPLOAD_FOLDER / "glossary_csv" / uid
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest = dest_dir / secure_filename(up.filename)
+        up.save(dest)
+        text = dest.read_text(encoding="utf-8-sig")
+        rows, warns = parse_glossary_csv(StringIO(text), has_header=has_header)
+        fname = secure_filename(up.filename)
+        batch_id = persist_glossary_csv(filename=fname, rows=rows)
+        for w in warns:
+            flash(w, "info")
+        flash(f"Įrašyta į DB: {len(rows)} eilučių (partija #{batch_id}).", "success")
+        return redirect(url_for("ui.glossary_batch", batch_id=batch_id))
     except Exception as e:
-        return render_template("error.html", error_message=str(e))
+        return render_template(
+            "glossary.html",
+            batches=list_glossary_batches(),
+            error_message=str(e),
+        )
 
 
-@bp.route("/templates/upload", methods=["POST"])
-def upload_template():
-    try:
-        name = request.form.get("name")
-        language = request.form.get("language", "LT")
-        file = request.files.get("file")
-        upload_path = config.UPLOAD_FOLDER / file.filename
-        upload_path.parent.mkdir(parents=True, exist_ok=True)
-        file.save(upload_path)
-        importer = TemplateImporter(upload_path)
-        with get_session() as session:
-            importer.import_template(session, name, language)
-        return redirect(url_for("ui.templates"))
-    except Exception as e:
-        return render_template("error.html", error_message=str(e))
-
-
-@bp.route("/sync")
-def sync():
-    try:
-        with get_session() as session:
-            jobs = session.query(SyncJob).all()
-            templates = get_all_templates(session)
-            return render_template("sync.html", jobs=jobs, templates=templates)
-    except Exception as e:
-        return render_template("error.html", error_message=str(e))
-
-
-@bp.route("/sync/create", methods=["POST"])
-def create_job():
-    try:
-        old_template_id = int(request.form.get("old_template_id"))
-        new_template_id = int(request.form.get("new_template_id"))
-        with get_session() as session:
-            create_sync_job(session, old_template_id, new_template_id)
-        return redirect(url_for("ui.sync"))
-    except Exception as e:
-        return render_template("error.html", error_message=str(e))
-
-
-@bp.route("/sync/run/<int:job_id>", methods=["POST"])
-def run_job(job_id: int):
-    try:
-        with get_session() as session:
-            job = run_sync_job(session, job_id)
-        return render_template("results.html", job=job)
-    except Exception as e:
-        return render_template("error.html", error_message=str(e))
-
-
-@bp.route("/experiments")
-def experiments():
-    try:
-        with get_session() as session:
-            all_experiments = get_all_experiments(session)
-            return render_template("experiments.html", experiments=all_experiments)
-    except Exception as e:
-        return render_template("error.html", error_message=str(e))
-
-
-@bp.route("/export")
-def export():
-    try:
-        with get_session() as session:
-            all_templates = get_all_templates(session)
-            return render_template("export.html", templates=all_templates)
-    except Exception as e:
-        return render_template("error.html", error_message=str(e))
-
-
-@bp.route("/export/tmx", methods=["POST"])
-def export_tmx():
-    try:
-        old_id = int(request.form.get("old_template_id"))
-        new_id = int(request.form.get("new_template_id"))
-        output_path = config.UPLOAD_FOLDER / "export.tmx"
-        with get_session() as session:
-            export_to_tmx(session, old_id, new_id, output_path)
-        return redirect(url_for("ui.export"))
-    except Exception as e:
-        return render_template("error.html", error_message=str(e))
-
-
-@bp.route("/export/docx", methods=["POST"])
-def export_docx():
-    try:
-        old_id = int(request.form.get("old_template_id"))
-        new_id = int(request.form.get("new_template_id"))
-        output_path = config.UPLOAD_FOLDER / "export.docx"
-        with get_session() as session:
-            export_to_docx(session, old_id, new_id, output_path)
-        return redirect(url_for("ui.export"))
-    except Exception as e:
-        return render_template("error.html", error_message=str(e))
+@bp.route("/glossary/batch/<int:batch_id>")
+def glossary_batch(batch_id: int):
+    batch = get_glossary_batch(batch_id)
+    if batch is None:
+        abort(404)
+    rows = list_glossary_rows(batch_id, limit=500)
+    total = count_glossary_rows(batch_id)
+    return render_template(
+        "glossary_batch.html",
+        batch=batch,
+        rows=rows,
+        total=total,
+    )

@@ -208,6 +208,7 @@ __marimo__/
 
 venv/
 data/uploads/
+data/standard_runs/
 data/raw/
 *.db
 __pycache__/

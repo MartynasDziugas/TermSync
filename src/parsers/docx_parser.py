@@ -12,7 +12,7 @@ class DocxParser:
         except Exception:
             return False
 
-    def extract_segments(self) -> list(str):
+    def extract_segments(self) -> list[str]:
         try:
             doc = Document(self.file_path)
             segments = []
@@ -20,7 +20,7 @@ class DocxParser:
                 text = para.text.strip()
                 if text:
                     segments.append(text)
-            return extract_segments
+            return segments
         except Exception as e:
             raise RuntimeError(f"Klaida skaitant .docx faila: {e}")
         

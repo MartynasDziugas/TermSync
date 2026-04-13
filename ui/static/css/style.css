@@ -33,6 +33,10 @@ main {
     padding: 0 2rem;
 }
 
+main:has(.page-wide) {
+    max-width: 1680px;
+}
+
 h1 {
     margin-bottom: 1.5rem;
     color: #2c3e50;
@@ -128,4 +132,516 @@ a:hover {
     max-width: 100%;
     margin: 1rem 0;
     border-radius: 8px;
+}
+
+.alignment-wide {
+    max-width: none;
+}
+
+.alignment-form {
+    max-width: none;
+    width: 100%;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1rem;
+}
+
+.alignment-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+@media (max-width: 1000px) {
+    .alignment-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.alignment-cell {
+    background: #fff;
+    border-radius: 8px;
+    padding: 0.75rem;
+    border: 1px solid #e0e0e0;
+    min-height: 200px;
+}
+
+.alignment-cell h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+    color: #2c3e50;
+}
+
+.alignment-scroll {
+    max-height: 65vh;
+    overflow-y: auto;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.al-para {
+    margin: 0 0 0.6rem;
+}
+
+.hl-mark {
+    border-radius: 3px;
+    padding: 0 2px;
+}
+
+.swatch {
+    display: inline-block;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 4px;
+    vertical-align: middle;
+    border: 1px solid #ccc;
+}
+
+.hint {
+    font-size: 0.9rem;
+    color: #555;
+    max-width: 900px;
+    line-height: 1.45;
+}
+
+.flash-list {
+    margin-bottom: 1.25rem;
+}
+
+.flash {
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+}
+
+.flash-success {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+
+.flash-info {
+    background: #e8f4fc;
+    border: 1px solid #b8daff;
+    color: #0c5460;
+}
+
+.flash-error {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.75rem;
+    font-size: 0.88rem;
+}
+
+.data-table th,
+.data-table td {
+    border: 1px solid #ccc;
+    padding: 0.45rem 0.55rem;
+    vertical-align: top;
+    text-align: left;
+}
+
+.data-table th {
+    background: #eef2f5;
+}
+
+.on-show-link {
+    display: inline-block;
+    padding: 0.35rem 0.85rem;
+    background: #2c3e50;
+    color: #fff !important;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: 600;
+}
+
+.on-show-link:hover {
+    background: #34495e;
+}
+
+.on-show-head {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    font-weight: 700;
+    margin: 1rem 0 0.5rem;
+    padding: 0 0.25rem;
+}
+
+.on-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+    padding: 0.5rem 0.65rem;
+    margin-bottom: 0.4rem;
+    border-radius: 6px;
+    border: 1px solid #d0d7de;
+    background: hsl(var(--h), 52%, 94%);
+}
+
+.on-row.on-alert {
+    border-color: #c0392b;
+    box-shadow: inset 5px 0 0 #c0392b;
+}
+
+.on-cell {
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.on-idx {
+    display: block;
+    font-size: 0.75rem;
+    color: #666;
+    margin-bottom: 0.25rem;
+}
+
+.on-lang-line {
+    margin-bottom: 0.2rem;
+}
+
+.on-code {
+    display: inline-block;
+    min-width: 2rem;
+    font-weight: 600;
+    color: #1a5276;
+}
+
+.on-plain {
+    white-space: pre-wrap;
+}
+
+.on-missing {
+    color: #999;
+    font-style: italic;
+}
+
+.stack-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-width: 36rem;
+    margin-top: 1rem;
+}
+
+.stack-form label {
+    font-weight: 600;
+}
+
+.stack-form button {
+    margin-top: 0.5rem;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+}
+
+.radio-row {
+    border: none;
+    margin: 0.5rem 0;
+}
+
+.radio-row label {
+    display: block;
+    font-weight: normal;
+    margin: 0.25rem 0;
+}
+
+a.button-link {
+    display: inline-block;
+    margin-top: 0.5rem;
+    padding: 0.4rem 0.75rem;
+    background: #2c3e50;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+a.button-link:hover {
+    background: #34495e;
+}
+
+.pair-train-status {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.status-message {
+    margin-bottom: 0.75rem;
+}
+
+.progress-track {
+    height: 10px;
+    background: #e0e0e0;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: #2980b9;
+    transition: width 0.25s ease;
+}
+
+.result-area {
+    margin-top: 1.25rem;
+}
+
+.hidden {
+    display: none;
+}
+
+/* Globali krovimo linija (formos, fetch, vidinės nuorodos) */
+#global-loading-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    z-index: 10000;
+    pointer-events: none;
+    overflow: hidden;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+#global-loading-bar.is-active {
+    visibility: visible;
+    opacity: 1;
+}
+
+#global-loading-bar::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 38%;
+    background: linear-gradient(90deg, #1565c0, #42a5f5);
+    animation: ts-load-sweep 0.85s ease-in-out infinite;
+}
+
+@keyframes ts-load-sweep {
+    0% {
+        transform: translateX(-120%);
+    }
+    100% {
+        transform: translateX(320%);
+    }
+}
+
+.review-grid-wrap {
+    margin-top: 1.5rem;
+    overflow-x: auto;
+}
+
+table.review-grid {
+    font-size: 0.9rem;
+}
+
+.review-grid th {
+    width: 20%;
+    vertical-align: top;
+}
+
+.review-grid .review-cell {
+    vertical-align: top;
+    white-space: pre-wrap;
+    line-height: 1.45;
+}
+
+.review-grid tr.review-flagged .review-cell {
+    outline: 1px solid #bdc3c7;
+}
+
+.hl-issue {
+    border-radius: 2px;
+    padding: 0 1px;
+}
+
+.hl-exact {
+    background-color: #c8e6c9;
+    color: #1b5e20;
+    border-radius: 2px;
+    padding: 0 1px;
+}
+
+.hl-exact-para {
+    border-radius: 2px;
+    padding: 0 1px;
+}
+
+.hl-pair-word {
+    background-color: #c8e6c9;
+    color: #1b5e20;
+    border-radius: 2px;
+    padding: 0 1px;
+}
+
+.review-match-sep {
+    color: #90a4ae;
+    padding: 0 0.15em;
+    user-select: none;
+}
+
+.review-match-empty {
+    color: #b0bec5;
+}
+
+.hl-gloss {
+    background-color: #e8f5e9;
+    color: #1b5e20;
+    border-radius: 2px;
+    padding: 0 2px;
+}
+
+.review-cell-gloss {
+    font-size: 0.85rem;
+}
+
+.gloss-line {
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid #eceff1;
+}
+
+.gloss-line:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.gloss-ok .gloss-mark {
+    color: #2e7d32;
+}
+
+.gloss-bad .gloss-mark {
+    color: #c62828;
+}
+
+.gloss-meta {
+    margin-top: 0.2rem;
+    margin-left: 1.1rem;
+}
+
+.gloss-note {
+    color: #546e7a;
+    font-size: 0.9em;
+}
+
+.gloss-none {
+    color: #90a4ae;
+}
+
+.checkbox-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    max-width: 48rem;
+    line-height: 1.35;
+}
+
+.checkbox-row input {
+    margin-top: 0.2rem;
+}
+
+.maintenance-panel {
+    border: 1px solid #cfd8dc;
+    padding: 1rem 1.25rem;
+    margin: 1rem 0;
+    max-width: 44rem;
+    border-radius: 4px;
+    background: #fafafa;
+}
+
+.maintenance-panel h3 {
+    margin-top: 0;
+    font-size: 1rem;
+}
+
+button.danger-button {
+    background: #c62828;
+    color: #fff;
+    border-color: #b71c1c;
+}
+
+button.danger-button:hover {
+    filter: brightness(1.06);
+}
+
+.review-no-pair {
+    font-size: 0.88rem;
+    line-height: 1.4;
+    color: #37474f;
+    padding: 0.35rem 0;
+}
+
+.review-no-pair code {
+    font-size: 0.9em;
+}
+
+.review-no-pair--muted {
+    color: #90a4ae;
+    font-size: 0.9rem;
+}
+
+.review-actions-cell {
+    vertical-align: top;
+    white-space: nowrap;
+    font-size: 0.85rem;
+}
+
+.review-actions-links {
+    margin: 0 0 0.4rem 0;
+}
+
+.review-session-delete-form {
+    margin-top: 0.35rem;
+}
+
+.review-delete-checkbox {
+    margin-bottom: 0.35rem;
+    max-width: 12rem;
+}
+
+button.button-small {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.resume-uploads-block {
+    margin-bottom: 1.5rem;
+}
+
+.resume-upload-row {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #eceff1;
+}
+
+.resume-upload-row:first-of-type {
+    border-top: none;
+    padding-top: 0;
+    margin-top: 0;
+}
+
+.resume-upload-label {
+    margin: 0 0 0.35rem 0;
+    font-size: 0.9rem;
+}
+
+code.resume-uid {
+    font-size: 0.8rem;
 }
