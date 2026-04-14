@@ -7,6 +7,9 @@ Alternatyva: du atskiri .docx su poziciniu poravimu (režimas dual_docx).
 Paleidimas (macOS / MacBook Pro): iš repo šaknies, su aktyviu venv, pvz.:
   python3 -m scripts.offline_st_finetune.train --output-name my_run
 
+Numatytieji parametrai: redaguokite scripts/offline_st_finetune/settings.py
+(vėliavos terminale vis tiek gali perrašyti).
+
 CPU (MacBook): numatytai ribojamos poros ir max_seq_length (RAM). Pilnas korpusas: --no-cpu-cap
 Didžiausias .docx: išimkite iš data/finetune_docx/ arba --exclude-substring SMQ
 Jei vis tiek OOM: mažinkite --max-pairs ir --max-seq-length
@@ -30,6 +33,8 @@ from torch.utils.data import DataLoader
 from config import config
 from sentence_transformers import InputExample, SentenceTransformer, losses
 from src.parsers.docx_parser import DocxParser
+
+from scripts.offline_st_finetune import settings as finetune_settings
 
 
 def _resolve_device(name: str) -> torch.device:
@@ -325,11 +330,17 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Išjungti progress bar",
     )
-    return p.parse_args()
+    finetune_settings.apply_argparse_defaults(p)
+    args = p.parse_args()
+    if args.exclude_substring is None:
+        ex = finetune_settings.default_exclude_substrings()
+        args.exclude_substring = ex if ex else []
+    return args
 
 
 def main() -> None:
     args = _parse_args()
+    print("  (fine-tuning numatymai: scripts/offline_st_finetune/settings.py)")
     docx_dir = Path(config.FINETUNE_DOCX_DIR)
     if not docx_dir.is_dir():
         print(f"Klaida: katalogas neegzistuoja: {docx_dir}", file=sys.stderr)
@@ -422,6 +433,15 @@ def main() -> None:
             f"  CPU: tekstai trumpinami iki {_max_chars} simb. kiekvienoje poroje "
             "(RAM). Pilni segmentai: --no-cpu-cap"
         )
+    elif device.type == "cpu":
+        # Su --no-cpu-cap ilgi DOCX ląstelių tekstai vis tiek apkrauna RAM; ribojame pagal max_seq.
+        _msl = int(args.max_seq_length) if args.max_seq_length is not None else 128
+        _max_chars = min(2048, max(160, _msl * 8))
+        pairs = [(s[:_max_chars], t[:_max_chars]) for s, t in pairs]
+        print(
+            f"  CPU: tekstai trumpinami iki {_max_chars} simb./pora (RAM, fine-tuning; "
+            f"max_seq_length≈{_msl})."
+        )
 
     out_dir = (Path(config.FINETUNED_ENCODER_OUTPUT_DIR) / args.output_name).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -448,11 +468,8 @@ def main() -> None:
 
     if device.type == "cpu":
         try:
-            if args.no_cpu_cap:
-                nt = min(4, max(1, (os.cpu_count() or 4) // 2))
-            else:
-                nt = 1
-            torch.set_num_threads(nt)
+            # Fine-tuning: kelios gijos dažnai padidina RAM piką (MKL/OpenMP); 1 = stabiliau MacBook.
+            torch.set_num_threads(1)
             torch.set_num_interop_threads(1)
         except RuntimeError:
             pass
