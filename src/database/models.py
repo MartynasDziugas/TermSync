@@ -77,6 +77,8 @@ class ReviewSession(Base):
     translator_src_rel_path: Mapped[str] = mapped_column(Text)
     translator_tgt_rel_path: Mapped[str] = mapped_column(Text)
     rows_json: Mapped[str] = mapped_column(Text)
+    glossary_upload_filename: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    glossary_from_db: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class GlossaryBatch(Base):

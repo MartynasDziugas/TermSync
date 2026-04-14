@@ -71,8 +71,11 @@ def persist_review_session(
     translator_src_path: Path,
     translator_tgt_path: Path,
     rows: list[ReviewRow],
+    glossary_upload_filename: str | None = None,
+    glossary_from_db: bool = False,
 ) -> None:
     rows_payload = [asdict(r) for r in rows]
+    gu = (glossary_upload_filename or "")[:512] or None
     with get_session() as session:
         session.add(
             ReviewSession(
@@ -83,6 +86,8 @@ def persist_review_session(
                 translator_src_rel_path=_rel_to_project(translator_src_path),
                 translator_tgt_rel_path=_rel_to_project(translator_tgt_path),
                 rows_json=json.dumps(rows_payload, ensure_ascii=False),
+                glossary_upload_filename=gu,
+                glossary_from_db=glossary_from_db,
             )
         )
 

@@ -466,6 +466,38 @@ a.button-link:hover {
     margin-bottom: 1rem;
 }
 
+.doc-upload-staged-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.35rem;
+}
+
+.doc-upload-staged-head .doc-upload-staged-title {
+    margin: 0;
+    flex: 1 1 auto;
+    min-width: 10rem;
+}
+
+.doc-upload-zone {
+    margin-bottom: 1.25rem;
+    padding: 1rem 1rem 0.35rem;
+    border: 1px solid #eceff1;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.doc-upload-file-label {
+    display: block;
+    margin-bottom: 0.9rem;
+}
+
+.doc-upload-remove-all {
+    flex-shrink: 0;
+}
+
 .doc-upload-glossary-meta {
     border: 1px solid #eceff1;
     border-radius: 8px;
@@ -532,6 +564,15 @@ a.button-link:hover {
 
 .doc-upload-remove:hover {
     background: #f8bbd9;
+}
+
+.doc-upload-remove:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.doc-upload-remove:disabled:hover {
+    background: #fce4ec;
 }
 
 .doc-upload-submit {

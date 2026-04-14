@@ -5,7 +5,6 @@ from pathlib import Path
 
 from flask import (
     Blueprint,
-    Response,
     abort,
     flash,
     jsonify,
@@ -77,6 +76,15 @@ from src.services.translator_resume_service import (
 from src.services.translator_review_service import run_translator_review
 
 bp = Blueprint("ui", __name__)
+
+
+def _redirect_after_translator_or_review_delete():
+    """Iš Doc Upload /check puslapio POST — atgal į /check; iš Istorijos — į /history."""
+    ref = (request.headers.get("Referer") or "").lower()
+    if "/check" in ref and "/history" not in ref:
+        return redirect(url_for("ui.check"))
+    return redirect(url_for("ui.history"))
+
 
 TRAIN_JOB_RE = re.compile(r"^[a-f0-9]{16}$")
 REVIEW_SESSION_RE = re.compile(r"^[a-f0-9]{32}$")
@@ -168,7 +176,7 @@ def translator_upload_delete(uid: str):
         flash(msg, "success")
     except ValueError as e:
         flash(str(e), "error")
-    return redirect(url_for("ui.history"))
+    return _redirect_after_translator_or_review_delete()
 
 
 @bp.route("/history/review-session/<sid>/delete", methods=["POST"])
@@ -187,7 +195,7 @@ def review_session_delete(sid: str):
         ),
         "success",
     )
-    return redirect(url_for("ui.history"))
+    return _redirect_after_translator_or_review_delete()
 
 
 @bp.route("/train", methods=["GET", "POST"])
@@ -261,6 +269,7 @@ def check():
             session_saved=False,
             glossary_count=count_all_glossary_rows(),
             resumable_uploads=list_resumable_translator_uploads(),
+            review_session=None,
         )
     try:
         if not has_model:
@@ -301,6 +310,10 @@ def check():
             ts_path, tt_path, use_glossary=use_glossary
         )
         public_id = uuid.uuid4().hex
+        gloss_upload_name = (
+            secure_filename(gl_f.filename) if glossary_imported and gl_f and gl_f.filename else None
+        )
+        gloss_from_db = (not glossary_imported) and (request.form.get("use_glossary") == "on")
         persist_review_session(
             public_id=public_id,
             training_run_job_id=run_id,
@@ -309,6 +322,8 @@ def check():
             translator_src_path=ts_path,
             translator_tgt_path=tt_path,
             rows=rows,
+            glossary_upload_filename=gloss_upload_name,
+            glossary_from_db=gloss_from_db,
         )
         return redirect(url_for("ui.check_session", sid=public_id))
     except Exception as e:
@@ -322,6 +337,7 @@ def check():
             session_saved=False,
             glossary_count=count_all_glossary_rows(),
             resumable_uploads=list_resumable_translator_uploads(),
+            review_session=None,
         )
 
 
@@ -357,6 +373,8 @@ def check_regenerate():
             translator_src_path=ts_path,
             translator_tgt_path=tt_path,
             rows=rows,
+            glossary_upload_filename=None,
+            glossary_from_db=use_glossary,
         )
         return redirect(url_for("ui.check_session", sid=public_id))
     except Exception as e:
@@ -382,6 +400,7 @@ def check_session(sid: str):
         session_saved=True,
         glossary_count=count_all_glossary_rows(),
         resumable_uploads=list_resumable_translator_uploads(),
+        review_session=rec,
     )
 
 

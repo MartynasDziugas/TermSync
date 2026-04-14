@@ -75,23 +75,29 @@
                 <option value="lv">Latviešu (lv)</option>
             </select>
         </label>
-        <label>Glossary (.csv)
-            <input type="file" name="glossary_csv" accept=".csv,text/csv" id="slot-glossary" class="doc-file-slot" data-slot-label="Glossary CSV">
-        </label>
     </div>
-    <fieldset class="doc-upload-glossary-meta">
-        <legend>CSV žodynas (jei įkeliate failą)</legend>
-        <label class="radio-row"><input type="radio" name="glossary_has_header" value="1" checked> Pirmoji eilutė — antraštė</label>
-        <label class="radio-row"><input type="radio" name="glossary_has_header" value="0"> Be antraštės</label>
-    </fieldset>
 
-    <h2 class="doc-upload-subhead">Translator documents</h2>
-    <label>Translator source .docx
-        <input type="file" name="translator_src" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" id="slot-trans-src" class="doc-file-slot" data-slot-label="Translator source (.docx)">
-    </label>
-    <label>Translator target .docx
-        <input type="file" name="translator_tgt" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" id="slot-trans-tgt" class="doc-file-slot" data-slot-label="Translator target (.docx)">
-    </label>
+    <section class="doc-upload-zone doc-upload-zone-trans" aria-labelledby="doc-zone-trans-h">
+        <h2 id="doc-zone-trans-h" class="doc-upload-subhead">Vertėjo dokumentai (.docx)</h2>
+        <label class="doc-upload-file-label">Translator source .docx
+            <input type="file" name="translator_src" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" id="slot-trans-src" class="doc-file-slot" data-slot-group="translator" data-slot-label="Translator source (.docx)">
+        </label>
+        <label class="doc-upload-file-label">Translator target .docx
+            <input type="file" name="translator_tgt" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" id="slot-trans-tgt" class="doc-file-slot" data-slot-group="translator" data-slot-label="Translator target (.docx)">
+        </label>
+    </section>
+
+    <section class="doc-upload-zone doc-upload-zone-gloss" aria-labelledby="doc-zone-gloss-h">
+        <h2 id="doc-zone-gloss-h" class="doc-upload-subhead">Žodynas (CSV)</h2>
+        <label class="doc-upload-file-label">Glossary (.csv)
+            <input type="file" name="glossary_csv" accept=".csv,text/csv" id="slot-glossary" class="doc-file-slot" data-slot-group="glossary" data-slot-label="Glossary CSV">
+        </label>
+        <fieldset class="doc-upload-glossary-meta">
+            <legend>CSV žodynas (jei įkeliate failą)</legend>
+            <label class="radio-row"><input type="radio" name="glossary_has_header" value="1" checked> Pirmoji eilutė — antraštė</label>
+            <label class="radio-row"><input type="radio" name="glossary_has_header" value="0"> Be antraštės</label>
+        </fieldset>
+    </section>
 
     {% if glossary_count and glossary_count > 0 %}
     <label class="checkbox-row">
@@ -100,10 +106,39 @@
     </label>
     {% endif %}
 
-    <section class="doc-upload-staged" aria-labelledby="doc-staged-h">
-        <h2 id="doc-staged-h" class="doc-upload-staged-title">Uploaded files</h2>
-        <ul id="doc-upload-staged-list" class="doc-upload-staged-list"></ul>
-        <p id="doc-upload-staged-empty" class="hint doc-upload-staged-empty">No files selected yet.</p>
+    <section class="doc-upload-staged" aria-labelledby="doc-staged-trans-h">
+        <div class="doc-upload-staged-head">
+            <h2 id="doc-staged-trans-h" class="doc-upload-staged-title">Parinkti vertėjo failai</h2>
+            <button type="button" class="doc-upload-remove doc-upload-remove-all" id="doc-remove-all-trans" aria-label="Pašalinti abu vertėjo failus iš formos">Remove all</button>
+        </div>
+        <ul id="doc-upload-staged-list-trans" class="doc-upload-staged-list">
+            {% if review_session %}
+            <li class="doc-upload-staged-item doc-upload-staged-server">
+                <span class="doc-upload-staged-name">Translator source (.docx): {{ review_session.translator_src_name }}</span>
+                <button type="button" class="doc-upload-remove" title="Pašalinti iš sąrašo (tik rodinys; DB sesija lieka)">Remove</button>
+            </li>
+            <li class="doc-upload-staged-item doc-upload-staged-server">
+                <span class="doc-upload-staged-name">Translator target (.docx): {{ review_session.translator_tgt_name }}</span>
+                <button type="button" class="doc-upload-remove" title="Pašalinti iš sąrašo (tik rodinys; DB sesija lieka)">Remove</button>
+            </li>
+            {% endif %}
+        </ul>
+        <p id="doc-upload-staged-empty-trans" class="hint doc-upload-staged-empty">Dar nepasirinkta.</p>
+    </section>
+    <section class="doc-upload-staged" aria-labelledby="doc-staged-gloss-h">
+        <div class="doc-upload-staged-head">
+            <h2 id="doc-staged-gloss-h" class="doc-upload-staged-title">Parinktas žodyno failas</h2>
+            <button type="button" class="doc-upload-remove doc-upload-remove-all" id="doc-remove-all-gloss" aria-label="Pašalinti žodyno CSV pasirinkimą iš formos">Remove all</button>
+        </div>
+        <ul id="doc-upload-staged-list-gloss" class="doc-upload-staged-list">
+            {% if review_session and (review_session.glossary_upload_filename or review_session.glossary_from_db) %}
+            <li class="doc-upload-staged-item doc-upload-staged-server">
+                <span class="doc-upload-staged-name">{% if review_session.glossary_upload_filename %}Glossary CSV: {{ review_session.glossary_upload_filename }}{% else %}Glossary CSV: bendras DB žodynas{% endif %}</span>
+                <button type="button" class="doc-upload-remove" title="Pašalinti iš sąrašo (tik rodinys; DB sesija lieka)">Remove</button>
+            </li>
+            {% endif %}
+        </ul>
+        <p id="doc-upload-staged-empty-gloss" class="hint doc-upload-staged-empty">Dar nepasirinkta.</p>
     </section>
 
     <button type="submit" class="doc-upload-submit">Generuoti peržiūrą</button>

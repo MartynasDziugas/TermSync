@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from config import config
@@ -24,6 +24,26 @@ def init_db() -> None:
 
     (BASE_DIR / "data").mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=_engine)
+    _ensure_review_session_glossary_columns()
+
+
+def _ensure_review_session_glossary_columns() -> None:
+    """SQLite: prideda stulpelius senoms DB be Alembic."""
+    if not str(config.DATABASE_URL).startswith("sqlite"):
+        return
+    with _engine.begin() as conn:
+        rows = conn.execute(text("PRAGMA table_info(review_sessions)")).fetchall()
+        col_names = {r[1] for r in rows}
+        if "glossary_upload_filename" not in col_names:
+            conn.execute(
+                text(
+                    "ALTER TABLE review_sessions ADD COLUMN glossary_upload_filename VARCHAR(512)"
+                )
+            )
+        if "glossary_from_db" not in col_names:
+            conn.execute(
+                text("ALTER TABLE review_sessions ADD COLUMN glossary_from_db BOOLEAN DEFAULT 0")
+            )
 
 
 @contextmanager
