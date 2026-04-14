@@ -14,7 +14,25 @@ class Config:
     STANDARD_RUNS_FOLDER = BASE_DIR / "data" / "standard_runs"
     LATEST_STANDARD_RUN_FILE = STANDARD_RUNS_FOLDER / "LATEST"
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024
-    BERT_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
+    _bert_env = os.environ.get("TERMSYNC_BERT_MODEL_NAME", "").strip()
+    BERT_MODEL_NAME = (
+        _bert_env
+        if _bert_env
+        else "paraphrase-multilingual-MiniLM-L12-v2"
+    )
+    # Offline ST fine-tuning: .docx korpusas (kelias gali būti perrašytas aplinka)
+    _finetune_docx = os.environ.get("TERMSYNC_FINETUNE_DOCX_DIR")
+    FINETUNE_DOCX_DIR = (
+        Path(_finetune_docx).expanduser()
+        if _finetune_docx
+        else BASE_DIR / "data" / "finetune_docx"
+    )
+    _finetune_out = os.environ.get("TERMSYNC_FINETUNED_ENCODER_DIR")
+    FINETUNED_ENCODER_OUTPUT_DIR = (
+        Path(_finetune_out).expanduser()
+        if _finetune_out
+        else BASE_DIR / "data" / "finetuned_encoder"
+    )
     PHRASE_SIMILARITY_THRESHOLD = 0.85
     # Vertėjo target vs standarto target (kosinusas embeddingų), papildomas signalas prie SVM
     REVIEW_TGT_SIM_THRESHOLD = 0.78

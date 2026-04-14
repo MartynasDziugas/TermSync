@@ -8,6 +8,7 @@ Standarto .docx poromis apmokomas SVM (BERT požymiai, 80/20, dirbtinės blogos 
 - Flask 3.x, **SQLAlchemy 2.x** (ORM, `src/database/`)
 - PyTorch / sentence-transformers (BERT)
 - Sentence-BERT: paraphrase-multilingual-MiniLM-L12-v2
+- **macOS / MacBook Pro:** dokumentuotose ir siūlomose CLI eilutėse naudoti `python3`, `source venv/bin/activate`, `python3 -m pip …`; PyTorch MPS (`torch.backends.mps`) kai galima
 
 ## Code style
 - Švarus modulinis `src/`

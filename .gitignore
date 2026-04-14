@@ -208,6 +208,10 @@ __marimo__/
 
 venv/
 data/uploads/
+# Offline ST fine-tuning: vartotojo .docx ir išsaugoti encoderio svoriai
+data/finetune_docx/**/*.docx
+data/finetuned_encoder/*
+!data/finetuned_encoder/.gitkeep
 data/standard_runs/
 data/raw/
 *.db
