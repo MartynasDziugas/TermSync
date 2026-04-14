@@ -35,6 +35,12 @@ def persist_training_run(
 ) -> None:
     with get_session() as session:
         session.execute(update(TrainingRun).values(is_active=False))
+        prev = session.scalars(
+            select(TrainingRun).where(TrainingRun.job_id == job_id)
+        ).first()
+        if prev is not None:
+            session.delete(prev)
+            session.flush()
         run = TrainingRun(
             job_id=job_id,
             standard_src_name=standard_src_name[:512],
@@ -46,6 +52,7 @@ def persist_training_run(
             mlp_test_accuracy=float(result["mlp_test_accuracy"]),
             artifact_path=artifact_path,
             is_active=True,
+            active_model_type=str(result.get("active_model_type", "svm"))[:8],
         )
         session.add(run)
         session.flush()
@@ -98,6 +105,16 @@ def get_active_training_run() -> TrainingRun | None:
             select(TrainingRun)
             .where(TrainingRun.is_active.is_(True))
             .order_by(TrainingRun.created_at.desc())
+        ).first()
+        if tr is not None:
+            session.expunge(tr)
+        return tr
+
+
+def get_training_run_by_job_id(job_id: str) -> TrainingRun | None:
+    with get_session() as session:
+        tr = session.scalars(
+            select(TrainingRun).where(TrainingRun.job_id == job_id)
         ).first()
         if tr is not None:
             session.expunge(tr)
@@ -219,6 +236,31 @@ def persist_glossary_csv(
                 )
             )
         return int(batch.id)
+
+
+def delete_all_glossary_batches() -> int:
+    """Pašalina visas žodyno partijas ir jų eilutes (CASCADE)."""
+    with get_session() as session:
+        batches = list(session.scalars(select(GlossaryBatch)).all())
+        n = len(batches)
+        for b in batches:
+            session.delete(b)
+    return n
+
+
+def delete_glossary_batches_by_filename(filename: str) -> int:
+    """Pašalina visas partijas su tiksliai tuo pačiu įrašytu `filename` (eilutės CASCADE)."""
+    fn = (filename or "")[:512]
+    if not fn:
+        return 0
+    with get_session() as session:
+        batches = list(
+            session.scalars(select(GlossaryBatch).where(GlossaryBatch.filename == fn)).all()
+        )
+        n = len(batches)
+        for b in batches:
+            session.delete(b)
+    return n
 
 
 def list_glossary_batches() -> list[GlossaryBatch]:

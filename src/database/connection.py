@@ -25,6 +25,7 @@ def init_db() -> None:
     (BASE_DIR / "data").mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=_engine)
     _ensure_review_session_glossary_columns()
+    _ensure_training_run_active_model_column()
 
 
 def _ensure_review_session_glossary_columns() -> None:
@@ -43,6 +44,20 @@ def _ensure_review_session_glossary_columns() -> None:
         if "glossary_from_db" not in col_names:
             conn.execute(
                 text("ALTER TABLE review_sessions ADD COLUMN glossary_from_db BOOLEAN DEFAULT 0")
+            )
+
+
+def _ensure_training_run_active_model_column() -> None:
+    if not str(config.DATABASE_URL).startswith("sqlite"):
+        return
+    with _engine.begin() as conn:
+        rows = conn.execute(text("PRAGMA table_info(training_runs)")).fetchall()
+        col_names = {r[1] for r in rows}
+        if "active_model_type" not in col_names:
+            conn.execute(
+                text(
+                    "ALTER TABLE training_runs ADD COLUMN active_model_type VARCHAR(8) DEFAULT 'svm'"
+                )
             )
 
 

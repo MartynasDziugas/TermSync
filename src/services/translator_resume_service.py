@@ -14,6 +14,7 @@ from src.database.models import ReviewSession
 
 SESSION_META_FILENAME = "session_meta.json"
 UPLOAD_FOLDER_UID_RE = re.compile(r"^[a-f0-9]{12}$")
+GLOSSARY_UPLOAD_DIR_UID_RE = re.compile(r"^[a-f0-9]{10}$")
 
 
 def write_translator_session_meta(
@@ -107,6 +108,40 @@ def _session_public_id_for_upload_uid(uid: str) -> str | None:
             .order_by(ReviewSession.created_at.desc())
         ).first()
         return rs.public_id if rs is not None else None
+
+
+def list_glossary_disk_uploads() -> list[dict[str, str]]:
+    """
+    Į `glossary_csv/<10 hex>/` įrašyti CSV failai (Doc Upload arba kitas importas į DB).
+    Rūšiuota pagal aplanko pakeitimo laiką (naujausi pirmi).
+    """
+    root = config.UPLOAD_FOLDER / "glossary_csv"
+    if not root.is_dir():
+        return []
+    pairs: list[tuple[float, dict[str, str]]] = []
+    for child in root.iterdir():
+        if not child.is_dir() or not GLOSSARY_UPLOAD_DIR_UID_RE.match(child.name):
+            continue
+        for f in sorted(child.iterdir(), key=lambda p: p.name.lower()):
+            if not f.is_file() or f.suffix.lower() != ".csv":
+                continue
+            try:
+                mtime = f.stat().st_mtime_ns
+            except OSError:
+                mtime = 0.0
+            rel = f.relative_to(config.UPLOAD_FOLDER)
+            pairs.append(
+                (
+                    mtime,
+                    {
+                        "uid": child.name,
+                        "filename": f.name,
+                        "path_label": str(rel).replace("\\", "/"),
+                    },
+                )
+            )
+    pairs.sort(key=lambda t: t[0], reverse=True)
+    return [t[1] for t in pairs]
 
 
 def list_translator_disk_inventory() -> list[dict[str, str | None]]:

@@ -282,7 +282,7 @@ def run_translator_review(
         raise ValueError(
             "Nėra įrašyto standarto modelio. Pirmiausia paleiskite mokymą su standarto poromis."
         )
-    bundle, run_id = loaded
+    bundle, run_id, active_model_type = loaded
     svm = bundle.svm
     pairs = bundle.standard_pairs
     if not pairs:
@@ -360,7 +360,10 @@ def run_translator_review(
             continue
 
         feat = np.hstack([es, et]).reshape(1, -1)
-        pred = str(svm.predict(feat)[0])
+        if active_model_type == "mlp" and bundle.mlp is not None:
+            pred = str(bundle.mlp.predict(feat)[0])
+        else:
+            pred = str(svm.predict(feat)[0])
 
         flagged = (pred == LABEL_NO_MATCH) or (
             sim_t < float(config.REVIEW_TGT_SIM_THRESHOLD)

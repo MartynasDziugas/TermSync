@@ -6,7 +6,7 @@
 <div class="doc-upload-layout">
 <div class="doc-upload-main">
 <h1>Doc Upload</h1>
-<p class="hint">Įkelkite kalbas, pasirinktinai <strong>CSV žodyną</strong> (UTF-8), tada vertėjo <strong>source</strong> ir <strong>target</strong> .docx. Peržiūra lyginama su paskutiniu standarto modeliu; EN–EN žymėjimas ir žodynas — kaip anksčiau. <a href="{{ url_for('ui.train') }}">Standarto mokymas</a> · <a href="{{ url_for('ui.glossary') }}">CSV partijos DB</a></p>
+<p class="hint">Įkelkite kalbas, pasirinktinai <strong>CSV žodyną</strong> (UTF-8), tada vertėjo <strong>source</strong> ir <strong>target</strong> .docx. Peržiūra lyginama su paskutiniu standarto modeliu; EN–EN žymėjimas ir žodynas — kaip anksčiau. <a href="{{ url_for('ui.train') }}">Standarto mokymas</a> · <a href="{{ url_for('ui.history') }}">Istorija</a> (visi įkėlimai diske ir DB).</p>
 
 {% if not has_model %}
 <p class="flash flash-error" role="alert">Pirmiausia paleiskite <a href="{{ url_for('ui.train') }}">Standarto mokymą</a>.</p>
@@ -89,6 +89,7 @@
 
     <section class="doc-upload-zone doc-upload-zone-gloss" aria-labelledby="doc-zone-gloss-h">
         <h2 id="doc-zone-gloss-h" class="doc-upload-subhead">Žodynas (CSV)</h2>
+        <p class="hint">Naujas failas šiai formai — žemiau. Jei keliate failą su <strong>tu pačiu vardu</strong> kaip anksčiau, senesnės DB partijos ir disko kopijos bus pakeistos nauja importu.</p>
         <label class="doc-upload-file-label">Glossary (.csv)
             <input type="file" name="glossary_csv" accept=".csv,text/csv" id="slot-glossary" class="doc-file-slot" data-slot-group="glossary" data-slot-label="Glossary CSV">
         </label>
@@ -138,7 +139,13 @@
             </li>
             {% endif %}
         </ul>
-        <p id="doc-upload-staged-empty-gloss" class="hint doc-upload-staged-empty">Dar nepasirinkta.</p>
+        <p id="doc-upload-staged-empty-gloss" class="hint doc-upload-staged-empty">
+            {% if glossary_count and glossary_count > 0 %}
+            Šioje formoje naujas .csv failas neparinktas (tai normalu, jei naudosite tik DB žodyną varnele aukščiau).
+            {% else %}
+            Dar nepasirinkta.
+            {% endif %}
+        </p>
     </section>
 
     <button type="submit" class="doc-upload-submit">Generuoti peržiūrą</button>

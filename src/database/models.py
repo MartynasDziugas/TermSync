@@ -39,6 +39,8 @@ class TrainingRun(Base):
     mlp_test_accuracy: Mapped[float] = mapped_column()
     artifact_path: Mapped[str] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Vertėjo peržiūroje naudojamas klasifikatorius (tas pats bundle: SVM + MLP galvos).
+    active_model_type: Mapped[str] = mapped_column(String(8), default="svm")
 
     segments: Mapped[list["StandardSegment"]] = relationship(
         back_populates="training_run",
