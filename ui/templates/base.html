@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}TermSync{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block head %}{% endblock %}
 </head>
 <body>
     <div id="global-loading-side" aria-hidden="true">
@@ -15,9 +16,9 @@
     <nav>
         <a href="{{ url_for('ui.index') }}">Pradžia</a>
         <a href="{{ url_for('ui.train') }}">Standarto mokymas</a>
+        <a href="{{ url_for('ui.hyperparam_dashboard') }}">Hiperparametrai</a>
         <a href="{{ url_for('ui.check') }}">Doc Upload</a>
         <a href="{{ url_for('ui.history') }}">Istorija</a>
-        <a href="{{ url_for('ui.glossary') }}">CSV glossorius</a>
     </nav>
     <main>
         {% with messages = get_flashed_messages(with_categories=true) %}

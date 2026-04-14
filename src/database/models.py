@@ -39,6 +39,8 @@ class TrainingRun(Base):
     mlp_test_accuracy: Mapped[float] = mapped_column()
     artifact_path: Mapped[str] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Vertėjo peržiūroje naudojamas klasifikatorius (tas pats bundle: SVM + MLP galvos).
+    active_model_type: Mapped[str] = mapped_column(String(8), default="svm")
 
     segments: Mapped[list["StandardSegment"]] = relationship(
         back_populates="training_run",
@@ -77,6 +79,8 @@ class ReviewSession(Base):
     translator_src_rel_path: Mapped[str] = mapped_column(Text)
     translator_tgt_rel_path: Mapped[str] = mapped_column(Text)
     rows_json: Mapped[str] = mapped_column(Text)
+    glossary_upload_filename: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    glossary_from_db: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class GlossaryBatch(Base):

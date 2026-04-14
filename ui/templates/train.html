@@ -2,12 +2,119 @@
 
 {% block title %}TermSync — Standarto mokymas{% endblock %}
 
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/train_charts.js') }}"></script>
+{% endblock %}
+
 {% block content %}
 <h1>Standarto mokymas</h1>
+
+{% if train_snapshot %}
+<div class="doc-upload-layout page-wide">
+<div class="doc-upload-main train-job-main">
+<section class="train-last-training-section" aria-labelledby="train-snapshot-h">
+    <h2 id="train-snapshot-h">Paskutinio mokymo rezultatai</h2>
+    <p class="hint">Standarto failai: <strong>{{ train_snapshot.standard_src_name }}</strong> → <strong>{{ train_snapshot.standard_tgt_name }}</strong> · <code>job_id</code> <code>{{ train_snapshot.job_id }}</code>. Po naujo mokymo arba hiperparametrų paleidimo <strong>atnaujinkite puslapį</strong>, kad atsinaujintų grafikai.</p>
+    <div id="train-snapshot-root" class="result-area train-snapshot-root"></div>
+</section>
+</div>
+</div>
+<script type="application/json" id="train-snapshot-payload">{{ train_snapshot | tojson }}</script>
+<script>
+(function () {
+    var payloadEl = document.getElementById("train-snapshot-payload");
+    var root = document.getElementById("train-snapshot-root");
+    if (!payloadEl || !root || !window.TermSyncTrainCharts) return;
+    var snap;
+    try {
+        snap = JSON.parse(payloadEl.textContent);
+    } catch (err) {
+        console.error(err);
+        return;
+    }
+    if (!snap || !snap.result) return;
+    if (typeof Chart === "undefined") {
+        root.innerHTML =
+            '<p class="flash flash-error" role="alert">Nepavyko įkelti Chart.js (tinklas ar blokatorius). Be šios bibliotekos grafikai nebraižomi.</p>';
+        return;
+    }
+    TermSyncTrainCharts.mountTrainCompare(root, {
+        result: snap.result,
+        active_model_type: snap.active_model_type || "svm",
+        activeModelPostUrl: snap.set_active_model_url || "",
+    });
+})();
+</script>
+{% else %}
+<p class="hint train-last-training-empty">Kol nėra užbaigto mokymo su išsaugotais metrikomis, grafikai čia nerodomi. Paleiskite mokymą (forma žemiau) arba hiperparametrų puslapį su galiojančiu <code>job_id</code>.</p>
+{% endif %}
+
 <p>Įkelkite <strong>du sutampančius</strong> standarto .docx (ta pati pastraipų tvarka). Dirbtinės blogos poros, 80/20 train/test, SVM + MLP ({{ quick_epochs }} epochų), tada <strong>SVM per visą imtį</strong> įrašomas į <code>data/standard_runs/</code>.</p>
+<p class="hint">Po įkėlimo ir <strong>Paleisti mokymą fone</strong> atsidarys puslapis <strong>„Mokymas vyksta“</strong> (<code>/train/job/&lt;job_id&gt;</code>) su eigos juosta; šiame puslapyje lieka paskutinio baigto mokymo grafikai.</p>
 
 {% if error_message %}
 <p class="flash flash-error" role="alert">{{ error_message }}</p>
+{% endif %}
+
+{% if upload_pairs %}
+<section class="train-upload-pairs-section" aria-labelledby="train-uploads-h">
+    <h2 id="train-uploads-h" class="train-upload-pairs-heading">Įkeltos dokumentų poros</h2>
+    <p class="hint">Kiekviena lentelės grupė — vienas įkėlimas: pirmoji eilutė <strong>source</strong>, antroji <strong>target</strong> (tas pats <code>job_id</code>).</p>
+    <div class="train-upload-table-wrap">
+        <table class="train-upload-table">
+            <thead>
+                <tr class="train-upload-remove-all-tr">
+                    <td colspan="3" class="train-upload-remove-all-spacer"></td>
+                    <td class="train-upload-action-cell train-upload-remove-all-cell">
+                        <form method="post" action="{{ url_for('ui.train_uploads_delete_all') }}" class="train-upload-table-form"
+                              onsubmit="return confirm('Pašalinti visas įkėlimo poras iš disko? (Nekeičia DB mokymų istorijos.)');">
+                            <button type="submit" class="train-upload-pink-btn">Remove All</button>
+                        </form>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="col">Tipas</th>
+                    <th scope="col">Failas</th>
+                    <th scope="col">Job ID</th>
+                    <th scope="col" class="train-upload-th-actions">Veiksmas</th>
+                </tr>
+            </thead>
+            {% for p in upload_pairs %}
+            <tbody class="train-upload-pair-group">
+                {% if p.has_src %}
+                <tr>
+                    <td class="train-upload-type">Source</td>
+                    <td class="train-upload-filename"><strong>{{ p.src_name }}</strong></td>
+                    <td class="train-upload-job-cell"><code>{{ p.job_id }}</code></td>
+                    <td class="train-upload-action-cell">
+                        <form method="post" action="{{ url_for('ui.train_upload_delete_one', job_id=p.job_id) }}" class="train-upload-table-form"
+                              onsubmit="return confirm('Pašalinti source failą ({{ p.job_id }})?');">
+                            <input type="hidden" name="role" value="src">
+                            <button type="submit" class="train-upload-pink-btn">Remove</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endif %}
+                {% if p.has_tgt %}
+                <tr>
+                    <td class="train-upload-type">Target</td>
+                    <td class="train-upload-filename"><strong>{{ p.tgt_name }}</strong></td>
+                    <td class="train-upload-job-cell"><code>{{ p.job_id }}</code></td>
+                    <td class="train-upload-action-cell">
+                        <form method="post" action="{{ url_for('ui.train_upload_delete_one', job_id=p.job_id) }}" class="train-upload-table-form"
+                              onsubmit="return confirm('Pašalinti target failą ({{ p.job_id }})?');">
+                            <input type="hidden" name="role" value="tgt">
+                            <button type="submit" class="train-upload-pink-btn">Remove</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+            {% endfor %}
+        </table>
+    </div>
+</section>
 {% endif %}
 
 <form method="post" enctype="multipart/form-data" class="stack-form">

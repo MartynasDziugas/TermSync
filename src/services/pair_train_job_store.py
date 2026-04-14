@@ -36,6 +36,25 @@ def get_job(job_id: str) -> dict[str, Any] | None:
         return dict(row) if row else None
 
 
+def remove_job(job_id: str) -> None:
+    """Pašalina fono job būseną (pvz. kai trinamas įkėlimo aplankas)."""
+    with _jobs_lock:
+        _jobs.pop(job_id, None)
+
+
+def ensure_job_slot(job_id: str) -> None:
+    """Sukuria tuščią job įrašą, jei dar nėra (pvz. POST /train JSON po serverio restarto)."""
+    with _jobs_lock:
+        if job_id not in _jobs:
+            _jobs[job_id] = {
+                "status": "queued",
+                "progress": 0,
+                "message": "",
+                "result": None,
+                "error": None,
+            }
+
+
 def run_in_thread(target: Callable[..., None], args: tuple[Any, ...]) -> None:
     t = threading.Thread(target=target, args=args, daemon=True)
     t.start()

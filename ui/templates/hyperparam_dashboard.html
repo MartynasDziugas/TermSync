@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+
+{% block title %}TermSync — Hiperparametrai{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/hyperparam_dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div
+    id="hyperparam-root"
+    class="hyperparam-page"
+    data-run-url="{{ url_for('ui.train') }}"
+    data-train-page-url="{{ url_for('ui.train') }}"
+></div>
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script type="text/babel">
+    const { useState, useCallback, useEffect } = React;
+
+    const KERNEL_OPTIONS = ["rbf", "linear", "poly", "sigmoid"];
+    const ACTIVATION_OPTIONS = ["relu", "tanh", "gelu", "silu"];
+    const HYPERPARAM_STORAGE_KEY = "TermSync_hyperparam_form_v1";
+
+    const DEFAULT_FORM = {
+        svmC: 1.0,
+        svmKernel: "rbf",
+        mlpHidden: "256, 128",
+        mlpActivation: "relu",
+        mlpLr: 0.001,
+        mlpEpochs: 40,
+        jobId: "",
+    };
+
+    function loadHyperparamDraft() {
+        try {
+            const raw = localStorage.getItem(HYPERPARAM_STORAGE_KEY);
+            if (!raw) return { ...DEFAULT_FORM };
+            const o = JSON.parse(raw);
+            if (!o || typeof o !== "object") return { ...DEFAULT_FORM };
+            const jobId =
+                typeof o.jobId === "string"
+                    ? o.jobId.replace(/[^a-f0-9]/gi, "").toLowerCase().slice(0, 16)
+                    : "";
+            const svmC =
+                typeof o.svmC === "number" && o.svmC > 0 && o.svmC <= 10000
+                    ? o.svmC
+                    : DEFAULT_FORM.svmC;
+            const svmKernel = KERNEL_OPTIONS.includes(o.svmKernel)
+                ? o.svmKernel
+                : DEFAULT_FORM.svmKernel;
+            const mlpHidden =
+                typeof o.mlpHidden === "string" && o.mlpHidden.trim()
+                    ? o.mlpHidden
+                    : DEFAULT_FORM.mlpHidden;
+            const mlpActivation = ACTIVATION_OPTIONS.includes(o.mlpActivation)
+                ? o.mlpActivation
+                : DEFAULT_FORM.mlpActivation;
+            let mlpLr =
+                typeof o.mlpLr === "number" && o.mlpLr > 0 && o.mlpLr <= 0.5
+                    ? o.mlpLr
+                    : DEFAULT_FORM.mlpLr;
+            let mlpEpochs =
+                typeof o.mlpEpochs === "number"
+                    ? Math.min(120, Math.max(1, Math.round(o.mlpEpochs)))
+                    : DEFAULT_FORM.mlpEpochs;
+            return { svmC, svmKernel, mlpHidden, mlpActivation, mlpLr, mlpEpochs, jobId };
+        } catch {
+            return { ...DEFAULT_FORM };
+        }
+    }
+
+    function saveHyperparamDraft(draft) {
+        try {
+            localStorage.setItem(HYPERPARAM_STORAGE_KEY, JSON.stringify(draft));
+        } catch (_) {}
+    }
+
+    function HyperparamDashboard() {
+        const rootEl = document.getElementById("hyperparam-root");
+        const runUrl = rootEl.dataset.runUrl;
+        const trainPageUrl = rootEl.dataset.trainPageUrl || "/train";
+
+        const [form, setForm] = useState(() => loadHyperparamDraft());
+        const { svmC, svmKernel, mlpHidden, mlpActivation, mlpLr, mlpEpochs, jobId } = form;
+
+        useEffect(() => {
+            saveHyperparamDraft(form);
+        }, [form]);
+
+        const [loading, setLoading] = useState(false);
+        const [status, setStatus] = useState(null);
+        const [statusKind, setStatusKind] = useState(null);
+
+        const submit = useCallback(async () => {
+            setLoading(true);
+            setStatus(null);
+            setStatusKind(null);
+            const jid = jobId.trim();
+            if (!/^[a-f0-9]{16}$/.test(jid)) {
+                setStatusKind("err");
+                setStatus(
+                    "Enter job_id: 16-character hex from the Train page URL after you upload both standard .docx files (same id as the upload folder)."
+                );
+                setLoading(false);
+                return;
+            }
+            const body = {
+                job_id: jid,
+                svm: {
+                    C: svmC,
+                    kernel: svmKernel,
+                },
+                mlp: {
+                    hiddenLayerSizes: mlpHidden,
+                    activation: mlpActivation,
+                    learningRate: mlpLr,
+                    epochs: mlpEpochs,
+                },
+            };
+            try {
+                const res = await fetch(runUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Accept: "application/json" },
+                    body: JSON.stringify(body),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    setStatusKind("err");
+                    setStatus(data.error || res.statusText || "Request failed");
+                    return;
+                }
+                setStatusKind("ok");
+                setStatus("Training complete");
+            } catch (e) {
+                setStatusKind("err");
+                setStatus(String(e && e.message ? e.message : e));
+            } finally {
+                setLoading(false);
+            }
+        }, [runUrl, trainPageUrl, jobId, svmC, svmKernel, mlpHidden, mlpActivation, mlpLr, mlpEpochs]);
+
+        return (
+            <div>
+                <h1>Hyperparameter configuration</h1>
+                <p className="hyperparam-intro">
+                    First upload both standard .docx on the{" "}
+                    <a href={trainPageUrl}>Train</a> page. Copy the <strong>job id</strong> from the
+                    progress URL, paste it below, then set <strong>SVM</strong> and <strong>MLP</strong>{" "}
+                    hyperparameters (SentenceTransformer embeddings stay fixed).{" "}
+                    <strong>Start Training and Compare</strong> runs the pipeline synchronously and
+                    returns test accuracies and MLP loss.{" "}
+                    <span className="hyperparam-hint">
+                        Suvesti laukai įsiminami šiame naršyklėje (perjungus kitą puslapį nepranyksta).
+                    </span>
+                </p>
+
+                <section className="hyperparam-card" aria-labelledby="job-h">
+                    <h2 id="job-h">Train job</h2>
+                    <div className="hyperparam-field">
+                        <label htmlFor="job-id">job_id (16 hex from Train redirect URL)</label>
+                        <input
+                            id="job-id"
+                            type="text"
+                            value={jobId}
+                            onChange={(e) =>
+                                setForm((f) => ({
+                                    ...f,
+                                    jobId: e.target.value.replace(/[^a-f0-9]/gi, "").toLowerCase().slice(0, 16),
+                                }))
+                            }
+                            placeholder="e.g. a1b2c3d4e5f67890"
+                            spellCheck={false}
+                            autoComplete="off"
+                        />
+                    </div>
+                </section>
+
+                <div className="hyperparam-grid">
+                    <section className="hyperparam-card" aria-labelledby="svm-h">
+                        <h2 id="svm-h">SVM</h2>
+                        <div className="hyperparam-field">
+                            <label htmlFor="svm-c">C (regularization)</label>
+                            <input
+                                id="svm-c"
+                                type="number"
+                                min={0.0001}
+                                max={10000}
+                                step={0.1}
+                                value={svmC}
+                                onChange={(e) =>
+                                    setForm((f) => ({ ...f, svmC: Number(e.target.value) }))
+                                }
+                            />
+                        </div>
+                        <div className="hyperparam-field">
+                            <label htmlFor="svm-kernel">Kernel type</label>
+                            <select
+                                id="svm-kernel"
+                                value={svmKernel}
+                                onChange={(e) =>
+                                    setForm((f) => ({ ...f, svmKernel: e.target.value }))
+                                }
+                            >
+                                {KERNEL_OPTIONS.map((k) => (
+                                    <option key={k} value={k}>
+                                        {k}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </section>
+
+                    <section className="hyperparam-card" aria-labelledby="mlp-h">
+                        <h2 id="mlp-h">MLP</h2>
+                        <div className="hyperparam-field">
+                            <label htmlFor="mlp-lr">Learning rate (AdamW)</label>
+                            <input
+                                id="mlp-lr"
+                                type="number"
+                                min={0.0000001}
+                                max={0.5}
+                                step={0.0001}
+                                value={mlpLr}
+                                onChange={(e) =>
+                                    setForm((f) => ({ ...f, mlpLr: Number(e.target.value) }))
+                                }
+                            />
+                        </div>
+                        <div className="hyperparam-field">
+                            <label htmlFor="mlp-ep">Training epochs</label>
+                            <div className="hyperparam-slider-row">
+                                <input
+                                    id="mlp-ep"
+                                    type="range"
+                                    min={1}
+                                    max={120}
+                                    step={1}
+                                    value={mlpEpochs}
+                                    onChange={(e) =>
+                                        setForm((f) => ({
+                                            ...f,
+                                            mlpEpochs: Number(e.target.value),
+                                        }))
+                                    }
+                                />
+                                <span className="hyperparam-slider-value">{mlpEpochs}</span>
+                            </div>
+                            <p className="hyperparam-hint">1–120</p>
+                        </div>
+                        <div className="hyperparam-field">
+                            <label htmlFor="mlp-hidden">Hidden layer sizes</label>
+                            <input
+                                id="mlp-hidden"
+                                type="text"
+                                value={mlpHidden}
+                                onChange={(e) =>
+                                    setForm((f) => ({ ...f, mlpHidden: e.target.value }))
+                                }
+                                placeholder="e.g. 512, 256, 128"
+                            />
+                            <p className="hyperparam-hint">Comma-separated integers (one per hidden layer)</p>
+                        </div>
+                        <div className="hyperparam-field">
+                            <label htmlFor="mlp-act">Activation function</label>
+                            <select
+                                id="mlp-act"
+                                value={mlpActivation}
+                                onChange={(e) =>
+                                    setForm((f) => ({ ...f, mlpActivation: e.target.value }))
+                                }
+                            >
+                                {ACTIVATION_OPTIONS.map((a) => (
+                                    <option key={a} value={a}>
+                                        {a}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </section>
+                </div>
+
+                <div className="hyperparam-actions">
+                    <button
+                        type="button"
+                        className="primary"
+                        onClick={submit}
+                        disabled={loading}
+                    >
+                        {loading ? "Sending…" : "Start Training and Compare"}
+                    </button>
+                    {status != null && (
+                        <pre
+                            className={"hyperparam-status " + (statusKind === "ok" ? "ok" : "err")}
+                            role="status"
+                        >
+                            {status}
+                        </pre>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("hyperparam-root"));
+    root.render(<HyperparamDashboard />);
+</script>
+{% endblock %}

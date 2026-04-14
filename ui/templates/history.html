@@ -7,7 +7,7 @@
 <p>Čia saugomi <strong>mokymai</strong> (standarto poros + metrikos) ir <strong>peržiūros sesijos</strong> (vertėjo failai + lentelė su spalvomis). Galite grįžti kitą dieną per nuorodą.</p>
 
 <h2>Įkelti vertėjo tikrinimo dokumentai (diskas)</h2>
-<p class="hint">Kiekviena eilutė — <strong>atskiras įkėlimas</strong> (unikalus aplankas), todėl tie patys failų vardai gali kartotis. Aplankai <code>data/uploads/translator_check/&lt;id&gt;</code>: rodoma su <code>session_meta.json</code> arba bent <strong>du .docx</strong>. Jei nėra DB sesijos — tęskite iš <a href="{{ url_for('ui.check') }}">Doc Upload</a>. Eilutėje galite <strong>pašalinti tik šį įkėlimą</strong> (diskas; jei buvo DB sesija — ji irgi pašalinama).</p>
+<p class="hint">Įkėlus naują failą su <strong>tu pačiu vardu</strong> kaip jau esančiame įkėlime, senas įkėlimas (aplankas ir DB sesija, jei buvo) automatiškai pašalinamas. Aplankai <code>data/uploads/translator_check/&lt;id&gt;</code>. Jei nėra DB sesijos — tęskite iš <a href="{{ url_for('ui.check') }}">Doc Upload</a>.</p>
 {% if translator_disk_inventory %}
 <table class="data-table">
     <thead>
@@ -40,6 +40,40 @@
 <p class="hint">Įkėlimų <code>translator_check</code> šiuo metu nėra arba aplankuose nėra nei <code>session_meta.json</code>, nei dviejų .docx.</p>
 {% endif %}
 
+<section id="history-disk-glossary" class="history-inv-section" aria-labelledby="history-gloss-disk-h">
+    <h2 id="history-gloss-disk-h">Žodyno CSV kopijos diske (<code>glossary_csv</code>)</h2>
+    <p class="hint">Kiekvienas naujas importas su tuo pačiu <strong>failo vardu</strong> išvalo ankstesnes disko kopijas ir DB partijas tokiu pat vardu.</p>
+    {% if glossary_disk_uploads %}
+    <div class="history-remove-all-bar">
+        <form method="post" action="{{ url_for('ui.history_maintenance') }}" class="history-remove-all-form"
+              onsubmit="return confirm('Pašalinti VISUS žodyno CSV aplankus ir failus po glossary_csv/ ? (DB partijos neliečiamos.)');">
+            <input type="hidden" name="action" value="purge_glossary_csv_disk">
+            <button type="submit" class="train-upload-pink-btn">Remove all</button>
+        </form>
+    </div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Aplankas</th>
+                <th>Failas</th>
+                <th>Kelias</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for g in glossary_disk_uploads %}
+            <tr>
+                <td><code>{{ g.uid }}</code></td>
+                <td>{{ g.filename }}</td>
+                <td><code>{{ g.path_label }}</code></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="hint">CSV kopijų <code>glossary_csv</code> šiuo metu nėra.</p>
+    {% endif %}
+</section>
+
 <h2>Standarto mokymai</h2>
 {% if training_runs %}
 <table class="data-table">
@@ -52,7 +86,8 @@
             <th>Porų</th>
             <th>SVM test</th>
             <th>MLP test</th>
-            <th>Aktyvus</th>
+            <th>Aktyvus įrašas</th>
+            <th>Vertėjui</th>
         </tr>
     </thead>
     <tbody>
@@ -66,6 +101,7 @@
             <td>{{ "%.4f"|format(r.svm_test_accuracy) }}</td>
             <td>{{ "%.4f"|format(r.mlp_test_accuracy) }}</td>
             <td>{{ 'Taip' if r.is_active else 'Ne' }}</td>
+            <td><code>{{ (r.active_model_type or 'svm')|upper }}</code></td>
         </tr>
         {% endfor %}
     </tbody>
@@ -114,8 +150,17 @@
 <p>Peržiūrų dar nėra.</p>
 {% endif %}
 
-<h2>CSV glossoriai</h2>
-{% if glossary_batches %}
+<section id="history-glossary-db" class="history-inv-section" aria-labelledby="history-gloss-db-h">
+    <h2 id="history-gloss-db-h">CSV glossoriai (DB partijos)</h2>
+    <p class="hint">Tas pats <code>secure_filename</code> vardas kaip naujai keliamame CSV pakeičia ankstesnes partijas (eilutės ištrinamos kartu su partija).</p>
+    {% if glossary_batches %}
+    <div class="history-remove-all-bar">
+        <form method="post" action="{{ url_for('ui.history_maintenance') }}" class="history-remove-all-form"
+              onsubmit="return confirm('Ištrinti VISAS žodyno partijas iš DB (visos eilutės)? Diske esančios glossary_csv kopijos neliečiamos.');">
+            <input type="hidden" name="action" value="purge_glossary_db_batches">
+            <button type="submit" class="train-upload-pink-btn">Remove all</button>
+        </form>
+    </div>
 <table class="data-table">
     <thead>
         <tr>
@@ -139,6 +184,7 @@
 {% else %}
 <p>CSV importų dar nėra — <a href="{{ url_for('ui.glossary') }}">įkelti</a>.</p>
 {% endif %}
+</section>
 
 <h2 id="duomenu-valymas">Duomenų valymas</h2>
 <p class="hint">Negrįžtami veiksmai. Pasirinkite vieną iš trijų atskirų variantų (arba eikite nuosekliai: pvz. pirma istorija, paskui tik įkėlimai).</p>

@@ -2,9 +2,17 @@
 
 {% block title %}TermSync — Mokymas vyksta{% endblock %}
 
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/train_charts.js') }}"></script>
+{% endblock %}
+
 {% block content %}
+<div class="doc-upload-layout page-wide">
+<div class="doc-upload-main train-job-main">
 <h1>Mokymas vyksta</h1>
 <p>Job: <code>{{ job_id }}</code> — būsena atnaujinama automatiškai.</p>
+<p class="hint">Šį <code>job_id</code> galite įklijuoti į <a href="{{ url_for('ui.hyperparam_dashboard') }}">Hiperparametrų</a> puslapį ir paleisti mokymą su kitais SVM / MLP nustatymais (po įkėlimo čia).</p>
 
 <div class="pair-train-status" aria-live="polite">
     <p id="status-line" class="status-message">Skaičiuojama…</p>
@@ -16,10 +24,13 @@
 </div>
 
 <p><a href="{{ url_for('ui.train') }}">Naujas paleidimas</a> · <a href="{{ url_for('ui.index') }}">Pradžia</a></p>
+</div>
+</div>
 
 <script>
 (function () {
     const apiUrl = {{ url_for('ui.train_api', job_id=job_id) | tojson }};
+    const activeModelPostUrl = {{ url_for('ui.train_job_set_active_model', job_id=job_id) | tojson }};
     const statusEl = document.getElementById('status-line');
     const barEl = document.getElementById('progress-bar');
     const wrapEl = document.getElementById('progress-wrap');
@@ -27,17 +38,14 @@
     const errEl = document.getElementById('error-line');
 
     function showResult(data) {
-        const r = data.result;
-        if (!r) return;
+        var r = data.result;
+        if (!r || !window.TermSyncTrainCharts) return;
         resultEl.classList.remove('hidden');
-        resultEl.innerHTML =
-            '<h2>Test rinkinys (80/20)</h2>' +
-            '<ul>' +
-            '<li>SVM accuracy (test): <strong>' + r.svm_test_accuracy + '</strong></li>' +
-            '<li>MLP accuracy (test): <strong>' + r.mlp_test_accuracy + '</strong> (' + r.quick_mlp_epochs + ' epochų)</li>' +
-            '<li>Standarto porų: ' + r.n_aligned_pairs + '</li>' +
-            '<li>Modelis: <code>' + (r.artifact_path || '') + '</code></li>' +
-            '</ul>';
+        window.TermSyncTrainCharts.mountTrainCompare(resultEl, {
+            result: r,
+            active_model_type: data.active_model_type || 'svm',
+            activeModelPostUrl: activeModelPostUrl
+        });
     }
 
     async function poll() {

@@ -9,17 +9,28 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sklearn.svm import SVC
+
+if TYPE_CHECKING:
+    from src.models.mlp_classifier import MLPClassifier
 
 LABEL_MATCH = "match"
 LABEL_NO_MATCH = "no_match"
 
 
-def new_svm_pair_classifier() -> SVC:
-    """Tas pats hiperparametrų rinkinys mokymui ir pilnai imčiai."""
-    return SVC(kernel="rbf", C=1.0, gamma="scale", probability=False)
+def new_svm_pair_classifier(
+    *,
+    C: float = 1.0,
+    kernel: str = "rbf",
+    gamma: str | float = "scale",
+) -> SVC:
+    """SVM porų klasifikatoriui; tas pats hiperparametrų rinkinys mokymui ir pilnai imčiai."""
+    k = (kernel or "rbf").lower()
+    if k not in ("rbf", "linear", "poly", "sigmoid"):
+        k = "rbf"
+    return SVC(kernel=k, C=float(C), gamma=gamma, probability=False)
 
 
 @dataclass(frozen=True)
@@ -27,18 +38,23 @@ class StandardPairBundle:
     svm: SVC
     standard_pairs: list[tuple[str, str]]
     feature_dim: int
+    mlp: MLPClassifier | None = None
 
 
 def pack_bundle(
     svm: SVC,
     standard_pairs: list[tuple[str, str]],
     feature_dim: int,
+    mlp: MLPClassifier | None = None,
 ) -> dict[str, Any]:
-    return {
+    out: dict[str, Any] = {
         "svm": svm,
         "standard_pairs": standard_pairs,
         "feature_dim": int(feature_dim),
     }
+    if mlp is not None:
+        out["mlp"] = mlp
+    return out
 
 
 def unpack_bundle_dict(raw: Mapping[str, Any]) -> StandardPairBundle:
@@ -58,4 +74,19 @@ def unpack_bundle_dict(raw: Mapping[str, Any]) -> StandardPairBundle:
         fd = int(inf) if inf is not None else 0
     else:
         fd = int(fd)
-    return StandardPairBundle(svm=svm, standard_pairs=pairs, feature_dim=fd)
+    mlp_raw = raw.get("mlp")
+    mlp_out: MLPClassifier | None = None
+    if mlp_raw is not None:
+        from src.models.mlp_classifier import MLPClassifier
+
+        if not isinstance(mlp_raw, MLPClassifier):
+            raise TypeError(
+                f"laukta MLPClassifier arba None, gauta {type(mlp_raw).__name__}."
+            )
+        mlp_out = mlp_raw
+    return StandardPairBundle(
+        svm=svm,
+        standard_pairs=pairs,
+        feature_dim=fd,
+        mlp=mlp_out,
+    )

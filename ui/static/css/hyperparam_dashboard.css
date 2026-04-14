@@ -1,0 +1,136 @@
+/* Hiperparametrų dashboard (React root) */
+.hyperparam-page {
+    max-width: 52rem;
+}
+
+.hyperparam-page h1 {
+    margin-bottom: 0.35rem;
+}
+
+.hyperparam-intro {
+    color: #546e7a;
+    margin-bottom: 1.5rem;
+    line-height: 1.45;
+}
+
+.hyperparam-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.hyperparam-card {
+    border: 1px solid #cfd8dc;
+    border-radius: 10px;
+    padding: 1.1rem 1.25rem;
+    background: #fafafa;
+}
+
+.hyperparam-card h2 {
+    margin: 0 0 0.85rem;
+    font-size: 1.1rem;
+    color: #37474f;
+}
+
+.hyperparam-field {
+    margin-bottom: 1rem;
+}
+
+.hyperparam-field:last-child {
+    margin-bottom: 0;
+}
+
+.hyperparam-field label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: #455a64;
+    margin-bottom: 0.35rem;
+}
+
+.hyperparam-field select,
+.hyperparam-field input[type="text"],
+.hyperparam-field input[type="number"] {
+    width: 100%;
+    max-width: 22rem;
+    padding: 0.45rem 0.55rem;
+    border: 1px solid #b0bec5;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    box-sizing: border-box;
+}
+
+.hyperparam-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.hyperparam-slider-row input[type="range"] {
+    flex: 1 1 12rem;
+    max-width: 20rem;
+}
+
+.hyperparam-slider-value {
+    min-width: 2.5rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: #1565c0;
+}
+
+.hyperparam-actions {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.hyperparam-actions button.primary {
+    padding: 0.65rem 1.35rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 8px;
+    border: none;
+    background: #1565c0;
+    color: #fff;
+    cursor: pointer;
+}
+
+.hyperparam-actions button.primary:hover:not(:disabled) {
+    background: #1976d2;
+}
+
+.hyperparam-actions button.primary:disabled {
+    opacity: 0.65;
+    cursor: wait;
+}
+
+.hyperparam-status {
+    margin: 0;
+    padding: 0.65rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    max-width: 100%;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.hyperparam-status.ok {
+    background: #e8f5e9;
+    color: #1b5e20;
+    border: 1px solid #a5d6a7;
+}
+
+.hyperparam-status.err {
+    background: #ffebee;
+    color: #b71c1c;
+    border: 1px solid #ef9a9a;
+}
+
+.hyperparam-hint {
+    font-size: 0.85rem;
+    color: #78909c;
+    margin-top: 0.25rem;
+}
