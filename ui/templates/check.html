@@ -4,7 +4,7 @@
 
 {% block content %}
 <h1>Vertėjo tikrinimas</h1>
-<p>Palyginimas su paskutiniu įrašytu standarto modeliu. Kiekviena vertėjo pastraipa susiejama su standarto pora; <strong>ta pati eilutės spalva</strong> žymi neatitikimus: standarto stulpeliuose — standarto teksto dalys, vertėjo <strong>source ir target</strong> — vertėjo dalys (difflib + žodžio lygis). Penktoje skiltyje — <strong>CSV žodynas</strong>. Stipresnis porinimas: <code>TERMSYNC_REVIEW_PAIR_ALIGN_MODE=positional</code> (žr. <code>config.py</code>).</p>
+<p>Palyginimas su paskutiniu įrašytu standarto modeliu. Kiekviena vertėjo pastraipa susiejama su standarto pora. <strong>Spalvos tik EN–EN</strong> (standarto source ir vertėjo source): difflib žymi <em>sutampančias</em> atkarpas (žodžio lygis). Standarto target ir vertėjo target <strong>lieka be žymėjimo</strong>. Jei tarp EN tekstų nėra jokių difflib sutapimų, eilutė <strong>nerodoma</strong> (net ir kai modelis žymi įtartiną porą). Penktoje skiltyje — <strong>CSV žodynas</strong>. Stipresnis porinimas: <code>TERMSYNC_REVIEW_PAIR_ALIGN_MODE=positional</code> (žr. <code>config.py</code>).</p>
 <p class="hint">Embedding režime: slenksčiai <code>REVIEW_PAIR_ACCEPT_*</code>, <code>REVIEW_PAIR_SRC_TOP1_TOP2_MARGIN</code> (<code>config.py</code>).</p>
 
 {% if not has_model %}
@@ -59,7 +59,7 @@
 {% endif %}
 
 {% if rows is not none %}
-<p class="hint">Modelis: <code>{{ run_id }}</code>. Eilutės be spalvų — nežymėtos kaip neatitinkančios (pagal SVM ir panašumą). CSV žymėjimas: <span class="hl-gloss">terminas</span> skiltyje „Glossorius (CSV)“ — ne standarto lentelės spalvos.</p>
+<p class="hint">Modelis: <code>{{ run_id }}</code>. Eilutės be spalvų lentelėje — poros, kurias modelis laiko neįtartinomis. Įtartinos poros be EN–EN difflib sutapimų <strong>visai neįtraukiamos</strong> į lentelę. CSV žymėjimas: <span class="hl-gloss">terminas</span> skiltyje „Glossorius (CSV)“ — ne standarto lentelės spalvos.</p>
 <p class="hint">Iš DB atidarytos <strong>senos</strong> sesijos rodo įrašytą lentelę tokią, kokia buvo sugeneruota anksčiau — pakartokite „Generuoti peržiūrą“ su tais pačiais failais, jei norite naujos porų / slenksčių logikos.</p>
 <p class="hint"><a href="{{ url_for('ui.history') }}">Istorija</a> — visos išsaugotos peržiūros. Duomenų valymas (sesijos, įkėlimai, standartas): <a href="{{ url_for('ui.history') }}#duomenu-valymas">Istorija → duomenų valymas</a>.</p>
 {% if session_public_id %}
