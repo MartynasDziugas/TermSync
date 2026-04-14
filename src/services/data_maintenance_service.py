@@ -105,3 +105,28 @@ def purge_translator_check_uploads() -> dict[str, int]:
         except OSError:
             pass
     return {"entries": n}
+
+
+def delete_translator_check_upload(upload_uid: str) -> dict[str, int]:
+    """
+    Pašalina vieną `translator_check/<upload_uid>` aplanką.
+    Trinamos ir DB `ReviewSession` eilutės, kurių keliai rodo į šį aplanką (kad neliktų nebegaliojančių nuorodų).
+    """
+    root = (config.UPLOAD_FOLDER / "translator_check" / upload_uid).resolve()
+    base = (config.UPLOAD_FOLDER / "translator_check").resolve()
+    if not root.is_relative_to(base) or root == base:
+        raise ValueError("Netinkamas įkėlimo kelias.")
+    needle = f"translator_check/{upload_uid}/"
+    removed_sessions = 0
+    with get_session() as session:
+        rows = list(
+            session.scalars(
+                select(ReviewSession).where(ReviewSession.translator_src_rel_path.contains(needle))
+            ).all()
+        )
+        for rs in rows:
+            session.delete(rs)
+            removed_sessions += 1
+    if root.is_dir():
+        shutil.rmtree(root, ignore_errors=True)
+    return {"sessions": removed_sessions}

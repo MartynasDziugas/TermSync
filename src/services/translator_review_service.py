@@ -1,6 +1,8 @@
 """
 Vertėjo source/target .docx: kiekviena pastraipa susiejama su standarto pora (embeddingai + SVM).
-Žymėjimas: difflib prie pasirinktos poros — ta pati eilutės spalva visiems keturiems tekstiniams stulpeliams.
+Žymėjimas: tik source kalba (EN–EN tarp vertėjo source ir standarto source); difflib žymi sutapimus.
+Jei EN–EN nėra jokių difflib „equal“ segmentų — visa eilutė (EN–LT–EN–LT) praleidžiama.
+Target (LT–LT) stulpeliai lieka be spalvų.
 """
 
 from __future__ import annotations
@@ -205,32 +207,23 @@ def _html_std_left_from_ts_L(ts: str, L: str, color: str) -> str:
     return _html_with_word_highlights(L, spans, color)
 
 
-def _html_std_right_from_tt_R(tt: str, R: str, color: str) -> str:
-    sm = difflib.SequenceMatcher(None, tt, R, autojunk=False)
-    spans: list[tuple[int, int]] = []
-    for tag, _i1, _i2, j1, j2 in sm.get_opcodes():
-        if tag in ("replace", "insert") and j1 < j2:
-            spans.append((j1, j2))
-    return _html_with_word_highlights(R, spans, color)
+def _en_en_has_equal(ts: str, L: str) -> bool:
+    """Ar vertėjo source ir standarto source turi bent vieną difflib „equal“ atkarpą."""
+    sm = difflib.SequenceMatcher(None, ts, L, autojunk=False)
+    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+        if tag == "equal" and i1 < i2 and j1 < j2:
+            return True
+    return False
 
 
-def _html_trans_src_from_ts_L(ts: str, L: str, color: str) -> str:
-    """Vertėjo source: paryškina dalis, kurios *nesutampa* su standarto source."""
+def _html_trans_src_equal_ts_L(ts: str, L: str, color: str) -> str:
+    """Vertėjo source: paryškina dalis, kurios *sutampa* su standarto source (EN–EN)."""
     sm = difflib.SequenceMatcher(None, ts, L, autojunk=False)
     spans: list[tuple[int, int]] = []
     for tag, i1, i2, _j1, _j2 in sm.get_opcodes():
-        if tag in ("replace", "insert") and i1 < i2:
+        if tag == "equal" and i1 < i2:
             spans.append((i1, i2))
     return _html_with_word_highlights(ts, spans, color)
-
-
-def _html_trans_tgt_from_tt_R(tt: str, R: str, color: str) -> str:
-    sm = difflib.SequenceMatcher(None, tt, R, autojunk=False)
-    spans: list[tuple[int, int]] = []
-    for tag, i1, i2, _j1, _j2 in sm.get_opcodes():
-        if tag in ("replace", "delete") and i1 < i2:
-            spans.append((i1, i2))
-    return _html_with_word_highlights(tt, spans, color)
 
 
 def _plain_four(ts: str, tt: str, L: str, R: str) -> tuple[str, str, str, str]:
@@ -364,20 +357,21 @@ def run_translator_review(
             rows.append(ReviewRow(a, b, c, d, False, gloss_col))
             continue
 
+        if not _en_en_has_equal(ts, L):
+            continue
+
         color = _row_color(issue_idx)
-        h_ts = _html_trans_src_from_ts_L(ts, L, color)
-        h_tt = _html_trans_tgt_from_tt_R(tt, R, color)
-        if '<span' not in h_tt and '<span' not in h_ts:
-            a, b, c, d = _plain_four(ts, tt, L, R)
-            rows.append(ReviewRow(a, b, c, d, False, gloss_col))
+        h_L = _html_std_left_from_ts_L(ts, L, color)
+        h_ts = _html_trans_src_equal_ts_L(ts, L, color)
+        if "hl-issue" not in h_L and "hl-issue" not in h_ts:
             continue
         issue_idx += 1
         rows.append(
             ReviewRow(
-                std_src_html=_html_std_left_from_ts_L(ts, L, color),
-                std_tgt_html=_html_std_right_from_tt_R(tt, R, color),
+                std_src_html=h_L,
+                std_tgt_html=html.escape(R),
                 trans_src_html=h_ts,
-                trans_tgt_html=h_tt,
+                trans_tgt_html=html.escape(tt),
                 flagged=True,
                 glossary_html=gloss_col,
             )

@@ -7,7 +7,7 @@
 <p>Čia saugomi <strong>mokymai</strong> (standarto poros + metrikos) ir <strong>peržiūros sesijos</strong> (vertėjo failai + lentelė su spalvomis). Galite grįžti kitą dieną per nuorodą.</p>
 
 <h2>Įkelti vertėjo tikrinimo dokumentai (diskas)</h2>
-<p class="hint">Aplankai <code>data/uploads/translator_check/&lt;id&gt;</code>: rodoma su <code>session_meta.json</code> arba bent <strong>du .docx</strong> faile (be meta — failų vardai iš disko). Jei nėra DB sesijos — tęskite iš <a href="{{ url_for('ui.check') }}">Vertėjo tikrinimo</a>.</p>
+<p class="hint">Kiekviena eilutė — <strong>atskiras įkėlimas</strong> (unikalus aplankas), todėl tie patys failų vardai gali kartotis. Aplankai <code>data/uploads/translator_check/&lt;id&gt;</code>: rodoma su <code>session_meta.json</code> arba bent <strong>du .docx</strong>. Jei nėra DB sesijos — tęskite iš <a href="{{ url_for('ui.check') }}">Vertėjo tikrinimo</a>. Eilutėje galite <strong>pašalinti tik šį įkėlimą</strong> (diskas; jei buvo DB sesija — ji irgi pašalinama).</p>
 {% if translator_disk_inventory %}
 <table class="data-table">
     <thead>
@@ -16,6 +16,7 @@
             <th>Source failas</th>
             <th>Target failas</th>
             <th>DB sesija</th>
+            <th></th>
         </tr>
     </thead>
     <tbody>
@@ -25,6 +26,12 @@
             <td>{{ d.translator_src_name }}</td>
             <td>{{ d.translator_tgt_name }}</td>
             <td>{% if d.session_public_id %}<a href="{{ url_for('ui.check_session', sid=d.session_public_id) }}"><code>{{ d.session_public_id }}</code></a>{% else %}<span class="hint">—</span> <a href="{{ url_for('ui.check') }}">tęsti tikrinime</a>{% endif %}</td>
+            <td class="review-actions-cell">
+                <form method="post" action="{{ url_for('ui.translator_upload_delete', uid=d.uid) }}" class="review-session-delete-form"
+                      onsubmit="return confirm('Pašalinti šį įkėlimą (aplanką diske)?{% if d.session_public_id %} Bus pašalinta ir susieta DB peržiūros sesija.{% endif %}');">
+                    <button type="submit" class="button-small danger-button">Pašalinti įkėlimą</button>
+                </form>
+            </td>
         </tr>
         {% endfor %}
     </tbody>

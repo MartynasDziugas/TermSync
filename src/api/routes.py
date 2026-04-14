@@ -20,6 +20,7 @@ from config import config
 from src.parsers.docx_parser import DocxParser
 from src.services.csv_glossary_service import parse_glossary_csv
 from src.services.data_maintenance_service import (
+    delete_translator_check_upload,
     purge_review_sessions,
     purge_training_data,
     purge_translator_check_uploads,
@@ -52,6 +53,7 @@ bp = Blueprint("ui", __name__)
 
 TRAIN_JOB_RE = re.compile(r"^[a-f0-9]{16}$")
 REVIEW_SESSION_RE = re.compile(r"^[a-f0-9]{32}$")
+TRANSLATOR_UPLOAD_UID_RE = re.compile(r"^[a-f0-9]{12}$")
 
 
 def _train_worker(
@@ -125,6 +127,21 @@ def history_maintenance():
     except Exception as e:
         flash(str(e), "error")
     return redirect(url_for("ui.history") + "#duomenu-valymas")
+
+
+@bp.route("/history/translator-upload/<uid>/delete", methods=["POST"])
+def translator_upload_delete(uid: str):
+    if not TRANSLATOR_UPLOAD_UID_RE.match(uid):
+        abort(404)
+    try:
+        stats = delete_translator_check_upload(uid)
+        msg = "Įkėlimo aplankas pašalintas iš disko."
+        if stats["sessions"]:
+            msg += f" Pašalinta susietų DB sesijų: {stats['sessions']}."
+        flash(msg, "success")
+    except ValueError as e:
+        flash(str(e), "error")
+    return redirect(url_for("ui.history"))
 
 
 @bp.route("/history/review-session/<sid>/delete", methods=["POST"])
