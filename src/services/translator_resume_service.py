@@ -23,14 +23,20 @@ def write_translator_session_meta(
     translator_tgt_display: str,
     src_disk_name: str,
     tgt_disk_name: str,
+    source_lang: str | None = None,
+    target_lang: str | None = None,
 ) -> None:
     base_dir.mkdir(parents=True, exist_ok=True)
-    payload = {
+    payload: dict[str, str] = {
         "translator_src_name": translator_src_display,
         "translator_tgt_name": translator_tgt_display,
         "src_disk_name": src_disk_name,
         "tgt_disk_name": tgt_disk_name,
     }
+    if source_lang:
+        payload["source_lang"] = source_lang
+    if target_lang:
+        payload["target_lang"] = target_lang
     (base_dir / SESSION_META_FILENAME).write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",

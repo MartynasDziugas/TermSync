@@ -4,7 +4,7 @@
 
 {% block content %}
 <h1>CSV → duomenų bazė</h1>
-<p>Įkelkite terminų lentelę <strong>.csv</strong> (UTF-8). Stulpeliai: <code>source</code> / <code>target</code> arba <code>en</code> / <code>lt</code>, neprivaloma <code>note</code> / <code>pastaba</code>. Jei antraštės nėra — žymėkite „be antraštės“: 1 stulp. = source, 2 = target, 3 = pastaba.</p>
+<p>Įkelkite terminų lentelę <strong>.csv</strong>. <strong>Rekomenduojama UTF-8</strong> (Excel: „Išsaugoti kaip“ → „CSV UTF-8“). Jei šaltinyje vietoj lietuviškų raidžių jau yra <code>_</code>, TermSync jų „neatstatys“ — reikia taisyti patį CSV arba šaltinį. Stulpeliai: <code>source</code> / <code>target</code> arba <code>en</code> / <code>lt</code>, neprivaloma <code>note</code> / <code>pastaba</code>. Jei antraštės nėra — žymėkite „be antraštės“: 1 stulp. = source, 2 = target, 3 = pastaba. Norėdami pakeisti žodyną — <strong>pašalinkite seną partiją</strong> lentelėje žemiau ir importuokite naują CSV.</p>
 
 {% if error_message %}
 <p class="flash flash-error" role="alert">{{ error_message }}</p>
@@ -32,6 +32,7 @@
             <th>Failas</th>
             <th>Eilučių</th>
             <th></th>
+            <th></th>
         </tr>
     </thead>
     <tbody>
@@ -41,6 +42,12 @@
             <td>{{ b.filename }}</td>
             <td>{{ b.row_count }}</td>
             <td><a href="{{ url_for('ui.glossary_batch', batch_id=b.id) }}">Peržiūra</a></td>
+            <td class="review-actions-cell">
+                <form method="post" action="{{ url_for('ui.glossary_batch_delete', batch_id=b.id) }}" class="review-session-delete-form"
+                      onsubmit="return confirm('Pašalinti šią CSV partiją iš DB (visos eilutės)? Vertėjo peržiūroje žodynas nebebus rodomas, kol neįkelsite naujos partijos.');">
+                    <button type="submit" class="button-small danger-button">Pašalinti</button>
+                </form>
+            </td>
         </tr>
         {% endfor %}
     </tbody>

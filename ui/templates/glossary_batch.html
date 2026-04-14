@@ -5,6 +5,10 @@
 {% block content %}
 <h1>CSV partija #{{ batch.id }}</h1>
 <p><strong>Failas:</strong> {{ batch.filename }} &nbsp;|&nbsp; <strong>Iš viso eilučių:</strong> {{ total }} &nbsp;|&nbsp; <strong>Rodoma:</strong> iki {{ rows|length }} (iš {{ total }})</p>
+<form method="post" action="{{ url_for('ui.glossary_batch_delete', batch_id=batch.id) }}" class="stack-form"
+      onsubmit="return confirm('Pašalinti šią partiją iš DB? Galėsite įkelti naują CSV.');">
+    <button type="submit" class="danger-button">Pašalinti šią CSV partiją iš DB</button>
+</form>
 
 <table class="data-table">
     <thead>

@@ -259,3 +259,13 @@ def count_glossary_rows(batch_id: int) -> int:
             select(func.count()).select_from(GlossaryRow).where(GlossaryRow.batch_id == batch_id)
         )
         return int(n or 0)
+
+
+def delete_glossary_batch(batch_id: int) -> bool:
+    """Pašalina CSV partiją ir visas jos eilutes (CASCADE per ORM / FK)."""
+    with get_session() as session:
+        b = session.scalars(select(GlossaryBatch).where(GlossaryBatch.id == batch_id)).first()
+        if b is None:
+            return False
+        session.delete(b)
+    return True
