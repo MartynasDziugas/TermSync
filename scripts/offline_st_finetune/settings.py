@@ -4,23 +4,29 @@
 Paleidimas lieka:
   python3 -m scripts.offline_st_finetune.train
 
-Terminalo argumentai vis tiek gali perrašyti šias reikšmes, jei juos nurodote
-(pvz. `python3 -m ... --epochs 5` perrašo EPOCHS žemiau).
+Numatytasis profilis žemiau sutampa su `train.py` MacBook / RAM logika, aprašyta projekte:
+  --device cpu, be --no-cpu-cap → automatiškai: iki 100 porų, max_seq_length 40,
+  256 simb./pora, 1 epocha, batch 1, gradient checkpointing (žr. train.py).
+
+Pilnas korpusas / ilgesnės sekos / daugiau epochų: tik jei sąmoningai rizikuojate RAM
+(`NO_CPU_CAP = True` ir/ar rankiniai MAX_* / EPOCHS) arba stipresnė mašina.
+
+Terminalo argumentai vis tiek gali perrašyti šias reikšmes.
 """
 
 from __future__ import annotations
 
-# --- Pagrindinė ---
-# auto | cpu | mps | cuda
+# --- Pagrindinė (nelūžimo numatytieji = leisti train.py CPU „cap“) ---
+# auto | cpu | mps | cuda  — MacBook: stabilu „cpu“
 DEVICE: str = "cpu"
 
 # Išvesties poaplankis po data/finetuned_encoder/
-OUTPUT_NAME: str = "mano_run"
+OUTPUT_NAME: str = "ft_mac_safe"
 
-# None = leisti train.py logikai (CPU be --no-cpu-cap: 1, kitaip 3); arba fiksuotas int
+# None = train.py: CPU be --no-cpu-cap → 1 epocha; su --no-cpu-cap → 3 (arba MPS/CUDA)
 EPOCHS: int | None = None
 
-# None = leisti train.py (MPS:4, CPU:1, CUDA:16); arba fiksuotas int
+# None = train.py: CPU → 1; MPS → 4; CUDA → 16
 BATCH_SIZE: int | None = None
 
 # Mokymo greitis (AdamW)
@@ -30,38 +36,33 @@ LR: float = 2e-5
 MODE: str = "bilingual_table"
 
 # --- bilingual_table (Word lentelės) ---
-# Stulpelių numeracija Word (1-based), naudojama tik su NO_SMART_LAYOUT
 EN_COL: int = 1
 LT_COL: int = 2
 
-# Jei True: išjungiamas CAT Source/Target stulpelių automatinis aptikimas
 NO_SMART_LAYOUT: bool = False
-
-# Jei True: antraštės eilutė nepraleidžiama net jei atrodo kaip CAT antraštė
 NO_SKIP_HEADER: bool = False
 
-# Failų vardai: jei eilutė yra faile (case-insensitive), failas neįtraukiamas.
-# Tuščias sąrašas [] = visi .docx iš katalogo
+# Dideli / rizikingi failai: praleisti vardu (pvz. SMQ sąrašai)
 EXCLUDE_FILENAME_SUBSTRINGS: list[str] = ["SMQ"]
 
-# None = train.py logika; int = fiksuotas tokenų limitas (mažiau RAM)
+# None + NO_CPU_CAP False → train.py nustato max_seq_length=40 ant CPU
 MAX_SEQ_LENGTH: int | None = None
 
-# None = train.py logika; int = atsitiktinai tik N porų
+# None + NO_CPU_CAP False → train.py imsi iki 100 atsitiktinių porų ant CPU
 MAX_PAIRS: int | None = None
 
-# CPU: išjungti automatinį RAM ribojimą (poros, max_seq, simboliai, epochos)
+# False = įjungtas automatinis RAM „cap“ (rekomenduojama MacBook).
+# True = pilnas korpusas / mažiau ribojimų — tik jei turite RAM atsargą.
 NO_CPU_CAP: bool = False
 
-# CPU: neįjungti gradient checkpointing
+# False = gradient checkpointing ant CPU (numatytai train.py)
 NO_GRADIENT_CHECKPOINTING: bool = False
 
-# dual_docx režimui ---
+# dual_docx ---
 DUAL_STEM: str = "corpus"
 SOURCE_SUFFIX: str = "_en"
 TARGET_SUFFIX: str = "_lt"
 
-# Kita ---
 QUIET: bool = False
 
 

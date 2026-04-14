@@ -433,6 +433,15 @@ def main() -> None:
             f"  CPU: tekstai trumpinami iki {_max_chars} simb. kiekvienoje poroje "
             "(RAM). Pilni segmentai: --no-cpu-cap"
         )
+    elif device.type == "cpu":
+        # Su --no-cpu-cap ilgi DOCX ląstelių tekstai vis tiek apkrauna RAM; ribojame pagal max_seq.
+        _msl = int(args.max_seq_length) if args.max_seq_length is not None else 128
+        _max_chars = min(2048, max(160, _msl * 8))
+        pairs = [(s[:_max_chars], t[:_max_chars]) for s, t in pairs]
+        print(
+            f"  CPU: tekstai trumpinami iki {_max_chars} simb./pora (RAM, fine-tuning; "
+            f"max_seq_length≈{_msl})."
+        )
 
     out_dir = (Path(config.FINETUNED_ENCODER_OUTPUT_DIR) / args.output_name).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -459,11 +468,8 @@ def main() -> None:
 
     if device.type == "cpu":
         try:
-            if args.no_cpu_cap:
-                nt = min(4, max(1, (os.cpu_count() or 4) // 2))
-            else:
-                nt = 1
-            torch.set_num_threads(nt)
+            # Fine-tuning: kelios gijos dažnai padidina RAM piką (MKL/OpenMP); 1 = stabiliau MacBook.
+            torch.set_num_threads(1)
             torch.set_num_interop_threads(1)
         except RuntimeError:
             pass
