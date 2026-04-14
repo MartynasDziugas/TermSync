@@ -7,6 +7,9 @@ Alternatyva: du atskiri .docx su poziciniu poravimu (režimas dual_docx).
 Paleidimas (macOS / MacBook Pro): iš repo šaknies, su aktyviu venv, pvz.:
   python3 -m scripts.offline_st_finetune.train --output-name my_run
 
+Numatytieji parametrai: redaguokite scripts/offline_st_finetune/settings.py
+(vėliavos terminale vis tiek gali perrašyti).
+
 CPU (MacBook): numatytai ribojamos poros ir max_seq_length (RAM). Pilnas korpusas: --no-cpu-cap
 Didžiausias .docx: išimkite iš data/finetune_docx/ arba --exclude-substring SMQ
 Jei vis tiek OOM: mažinkite --max-pairs ir --max-seq-length
@@ -30,6 +33,8 @@ from torch.utils.data import DataLoader
 from config import config
 from sentence_transformers import InputExample, SentenceTransformer, losses
 from src.parsers.docx_parser import DocxParser
+
+from scripts.offline_st_finetune import settings as finetune_settings
 
 
 def _resolve_device(name: str) -> torch.device:
@@ -325,11 +330,17 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Išjungti progress bar",
     )
-    return p.parse_args()
+    finetune_settings.apply_argparse_defaults(p)
+    args = p.parse_args()
+    if args.exclude_substring is None:
+        ex = finetune_settings.default_exclude_substrings()
+        args.exclude_substring = ex if ex else []
+    return args
 
 
 def main() -> None:
     args = _parse_args()
+    print("  (fine-tuning numatymai: scripts/offline_st_finetune/settings.py)")
     docx_dir = Path(config.FINETUNE_DOCX_DIR)
     if not docx_dir.is_dir():
         print(f"Klaida: katalogas neegzistuoja: {docx_dir}", file=sys.stderr)
