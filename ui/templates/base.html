@@ -7,11 +7,15 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <div id="global-loading-bar" aria-hidden="true"></div>
+    <div id="global-loading-side" aria-hidden="true">
+        <div class="global-loading-side-track">
+            <div class="global-loading-side-fill"></div>
+        </div>
+    </div>
     <nav>
         <a href="{{ url_for('ui.index') }}">Pradžia</a>
         <a href="{{ url_for('ui.train') }}">Standarto mokymas</a>
-        <a href="{{ url_for('ui.check') }}">Vertėjo tikrinimas</a>
+        <a href="{{ url_for('ui.check') }}">Doc Upload</a>
         <a href="{{ url_for('ui.history') }}">Istorija</a>
         <a href="{{ url_for('ui.glossary') }}">CSV glossorius</a>
     </nav>

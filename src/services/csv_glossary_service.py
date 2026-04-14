@@ -12,6 +12,24 @@ from typing import IO
 
 MAX_ROWS = 10_000
 
+def decode_glossary_file_bytes(raw: bytes) -> tuple[str, str]:
+    """
+    Bando UTF-8 (su BOM), gryną UTF-8, tada baltų kalbų / Vakarų Europos Windows koduotes.
+    Grąžina (tekstas, panaudota_koduote).
+    """
+    if raw.startswith(b"\xef\xbb\xbf"):
+        return raw.decode("utf-8-sig"), "utf-8-sig"
+    try:
+        return raw.decode("utf-8"), "utf-8"
+    except UnicodeDecodeError:
+        pass
+    for enc in ("cp1257", "iso-8859-13", "cp1252"):
+        try:
+            return raw.decode(enc), enc
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("utf-8", errors="replace"), "utf-8 (replace)"
+
 _SOURCE_ALIASES = frozenset(
     {
         "source",
@@ -152,11 +170,18 @@ def parse_glossary_csv(
 
 def parse_glossary_csv_path(
     path: Path,
-    encoding: str = "utf-8-sig",
+    encoding: str | None = None,
     *,
     has_header: bool = True,
 ) -> tuple[list[tuple[str, str, str | None]], list[str]]:
-    text = path.read_text(encoding=encoding)
     from io import StringIO
 
-    return parse_glossary_csv(StringIO(text), has_header=has_header)
+    if encoding is not None:
+        text = path.read_text(encoding=encoding)
+        used = encoding
+    else:
+        text, used = decode_glossary_file_bytes(path.read_bytes())
+    rows, warns = parse_glossary_csv(StringIO(text), has_header=has_header)
+    if used not in ("utf-8", "utf-8-sig"):
+        warns = [*warns, f"CSV nuskaityta koduote „{used}“. Rekomenduojama išsaugoti kaip „CSV UTF-8“ (Excel)."]
+    return rows, warns

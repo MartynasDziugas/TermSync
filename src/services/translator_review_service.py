@@ -1,7 +1,7 @@
 """
 Vertėjo source/target .docx: kiekviena pastraipa susiejama su standarto pora (embeddingai + SVM).
 Žymėjimas: tik source kalba (EN–EN tarp vertėjo source ir standarto source); difflib žymi sutapimus.
-Jei EN–EN nėra jokių difflib „equal“ segmentų — visa eilutė (EN–LT–EN–LT) praleidžiama.
+Eilutė praleidžiama, jei: embedding režime nėra pakankamai tvirtos standarto poros; arba kai porą modelis laiko įtartiną, bet nėra EN–EN difflib „equal“.
 Target (LT–LT) stulpeliai lieka be spalvų.
 """
 
@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import difflib
 import html
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -18,7 +19,11 @@ from config import config
 from src.models.bert_model import BertModel
 from src.models.svm_bundle import LABEL_NO_MATCH
 from src.parsers.docx_parser import DocxParser
-from src.services.glossary_match_service import render_glossary_column_html
+from src.services.glossary_match_service import (
+    _GlossHit,
+    collect_glossary_hits,
+    render_glossary_column_html,
+)
 from src.services.standard_train_service import load_latest_bundle
 
 
@@ -95,36 +100,9 @@ def _weak_positional_overflow_cell(paragraph_index: int, n_pairs: int) -> str:
     )
 
 
-def _weak_pair_standard_cell(sim_s: float, sim_t: float, src_gap: float) -> str:
-    src_thr = float(config.REVIEW_PAIR_ACCEPT_MIN_SRC_COSINE)
-    tgt_thr = float(config.REVIEW_PAIR_ACCEPT_MIN_TGT_COSINE)
-    margin = float(config.REVIEW_PAIR_SRC_TOP1_TOP2_MARGIN)
-    strong = float(config.REVIEW_PAIR_STRONG_SRC_COSINE)
-    return (
-        '<div class="review-no-pair" role="status">'
-        "<strong>Nėra priimtinos standarto poros.</strong> "
-        "Reikia: pakankamas <em>standarto EN ↔ vertėjo EN</em> ir <em>standarto LT ↔ vertėjo LT</em> kosinusas, "
-        f"be to EN signalas turi būti aiškus (1-os ir 2-os vietos skirtumas ≥ <code>{margin:.2f}</code>, "
-        f"nebent EN kos. ≥ <code>{strong:.2f}</code>). "
-        "Išsaugotos peržiūros DB <strong>neatsinaujina</strong> — paleiskite tikrinimą iš naujo su tais pačiais failais. "
-        f"<br>Dabar: EN <code>{sim_s:.2f}</code> (min. <code>{src_thr:.2f}</code>), "
-        f"LT <code>{sim_t:.2f}</code> (min. <code>{tgt_thr:.2f}</code>), "
-        f"EN 1–2 skirtumas <code>{src_gap:.2f}</code>."
-        "</div>"
-    )
-
-
-def _row_color(idx: int) -> str:
-    hues = [210, 135, 45, 310, 175, 285, 25, 340]
-    h = hues[idx % len(hues)]
-    return f"hsl({h}, 72%, 82%)"
-
-
-def _wrap(color: str, text: str) -> str:
-    return (
-        f'<span class="hl-issue" style="background-color:{color}">'
-        f"{html.escape(text)}</span>"
-    )
+def _wrap_issue(text: str) -> str:
+    """Viena EN–EN žymėjimo klasė (spalva tik CSS)."""
+    return f'<span class="hl-issue">{html.escape(text)}</span>'
 
 
 def _merge_ranges(ranges: list[tuple[int, int]]) -> list[tuple[int, int]]:
@@ -177,7 +155,7 @@ def _ranges_highlight_full_words(s: str, raw: list[tuple[int, int]]) -> list[tup
     return _merge_ranges(picked)
 
 
-def _html_with_word_highlights(s: str, highlight_ranges: list[tuple[int, int]], color: str) -> str:
+def _html_with_word_highlights(s: str, highlight_ranges: list[tuple[int, int]]) -> str:
     if not highlight_ranges:
         return html.escape(s)
     ranges = _ranges_highlight_full_words(s, highlight_ranges)
@@ -191,20 +169,20 @@ def _html_with_word_highlights(s: str, highlight_ranges: list[tuple[int, int]], 
             continue
         if lo > cur:
             parts.append(html.escape(s[cur:lo]))
-        parts.append(_wrap(color, s[lo:hi]))
+        parts.append(_wrap_issue(s[lo:hi]))
         cur = hi
     if cur < len(s):
         parts.append(html.escape(s[cur:]))
     return "".join(parts)
 
 
-def _html_std_left_from_ts_L(ts: str, L: str, color: str) -> str:
+def _html_std_left_from_ts_L(ts: str, L: str) -> str:
     sm = difflib.SequenceMatcher(None, ts, L, autojunk=False)
     spans: list[tuple[int, int]] = []
     for tag, _i1, _i2, j1, j2 in sm.get_opcodes():
         if tag == "equal" and j1 < j2:
             spans.append((j1, j2))
-    return _html_with_word_highlights(L, spans, color)
+    return _html_with_word_highlights(L, spans)
 
 
 def _en_en_has_equal(ts: str, L: str) -> bool:
@@ -216,14 +194,61 @@ def _en_en_has_equal(ts: str, L: str) -> bool:
     return False
 
 
-def _html_trans_src_equal_ts_L(ts: str, L: str, color: str) -> str:
-    """Vertėjo source: paryškina dalis, kurios *sutampa* su standarto source (EN–EN)."""
+def _en_equal_word_spans(ts: str, L: str) -> list[tuple[int, int]]:
+    """EN–EN difflib „equal“ atkarpos, išplėstos iki pilnų žodžių `ts` tekste."""
     sm = difflib.SequenceMatcher(None, ts, L, autojunk=False)
-    spans: list[tuple[int, int]] = []
+    raw: list[tuple[int, int]] = []
     for tag, i1, i2, _j1, _j2 in sm.get_opcodes():
         if tag == "equal" and i1 < i2:
-            spans.append((i1, i2))
-    return _html_with_word_highlights(ts, spans, color)
+            raw.append((i1, i2))
+    return _ranges_highlight_full_words(ts, raw)
+
+
+def _segment_flags(
+    lo: int,
+    hi: int,
+    en_ranges: list[tuple[int, int]],
+    gloss_ranges: list[tuple[int, int]],
+) -> tuple[bool, bool]:
+    def touches(ranges: list[tuple[int, int]]) -> bool:
+        for a, b in ranges:
+            if not (hi <= a or lo >= b):
+                return True
+        return False
+
+    return touches(en_ranges), touches(gloss_ranges)
+
+
+def _html_trans_src_en_glossary_merged(ts: str, L: str, gloss_hits: list[_GlossHit]) -> str:
+    """
+    Vertėjo source: EN–EN sutapimai (rožinė) + žodynas (geltona); sutampantysis segmentas —
+    viduje rožinė, išorėje pastelinio geltono rėmelis (box-shadow).
+    """
+    en = _en_equal_word_spans(ts, L)
+    gloss = [(h.start, h.end) for h in gloss_hits]
+    cuts: set[int] = {0, len(ts)}
+    for a, b in en + gloss:
+        cuts.add(a)
+        cuts.add(b)
+    ordered = sorted(cuts)
+    parts: list[str] = []
+    for i in range(len(ordered) - 1):
+        a, b = ordered[i], ordered[i + 1]
+        if a >= b:
+            continue
+        has_en, has_gl = _segment_flags(a, b, en, gloss)
+        chunk = html.escape(ts[a:b])
+        if has_en and has_gl:
+            parts.append(
+                f'<span class="hl-issue-gloss-overlap"><span class="hl-issue">{chunk}</span></span>'
+            )
+        elif has_en:
+            parts.append(f'<span class="hl-issue">{chunk}</span>')
+        elif has_gl:
+            parts.append(f'<span class="hl-gloss-source-match">{chunk}</span>')
+        else:
+            parts.append(chunk)
+    return "".join(parts)
 
 
 def _plain_four(ts: str, tt: str, L: str, R: str) -> tuple[str, str, str, str]:
@@ -286,7 +311,6 @@ def run_translator_review(
         glossary_entries = load_glossary_entries_for_review()
 
     rows: list[ReviewRow] = []
-    issue_idx = 0
     dash = '<span class="gloss-none">—</span>'
     n_pairs = len(pairs)
     align_mode = _review_align_mode()
@@ -294,17 +318,23 @@ def run_translator_review(
 
     for i in range(n):
         ts, tt = trans_s[i], trans_t[i]
+        ts_nfc = unicodedata.normalize("NFC", ts)
+        tt_nfc = unicodedata.normalize("NFC", tt)
+        hits_row: list[_GlossHit] = []
+        if glossary_entries:
+            hits_row = collect_glossary_hits(ts_nfc, tt_nfc, glossary_entries)
+        gloss_col = (
+            render_glossary_column_html(ts_nfc, tt_nfc, glossary_entries, hits=hits_row)
+            if glossary_entries
+            else dash
+        )
+
         es = np.array(bert.predict([ts])[0], dtype=np.float64)
         et = np.array(bert.predict([tt])[0], dtype=np.float64)
 
         sim_src_vec, sim_tgt_vec = _pair_cosine_vectors(es, et, emb_L, emb_R)
         if align_mode == "positional":
             if i >= n_pairs and not pad_last:
-                gloss_col = (
-                    render_glossary_column_html(ts, tt, glossary_entries)
-                    if glossary_entries
-                    else dash
-                )
                 rows.append(
                     ReviewRow(
                         std_src_html=_weak_positional_overflow_cell(i, n_pairs),
@@ -324,24 +354,9 @@ def run_translator_review(
         sim_t = float(sim_tgt_vec[j])
         src_gap = _src_top1_top2_gap(sim_src_vec)
         L, R = pairs[j]
-
-        gloss_col = (
-            render_glossary_column_html(ts, tt, glossary_entries)
-            if glossary_entries
-            else dash
-        )
+        L_nfc = unicodedata.normalize("NFC", L)
 
         if not _pair_meets_confidence(sim_s, sim_t, src_gap, align_mode=align_mode):
-            rows.append(
-                ReviewRow(
-                    std_src_html=_weak_pair_standard_cell(sim_s, sim_t, src_gap),
-                    std_tgt_html='<div class="review-no-pair review-no-pair--muted">—</div>',
-                    trans_src_html=html.escape(ts),
-                    trans_tgt_html=html.escape(tt),
-                    flagged=True,
-                    glossary_html=gloss_col,
-                )
-            )
             continue
 
         feat = np.hstack([es, et]).reshape(1, -1)
@@ -357,21 +372,19 @@ def run_translator_review(
             rows.append(ReviewRow(a, b, c, d, False, gloss_col))
             continue
 
-        if not _en_en_has_equal(ts, L):
+        if not _en_en_has_equal(ts_nfc, L_nfc):
             continue
 
-        color = _row_color(issue_idx)
-        h_L = _html_std_left_from_ts_L(ts, L, color)
-        h_ts = _html_trans_src_equal_ts_L(ts, L, color)
+        h_L = _html_std_left_from_ts_L(ts_nfc, L_nfc)
+        h_ts = _html_trans_src_en_glossary_merged(ts_nfc, L_nfc, hits_row)
         if "hl-issue" not in h_L and "hl-issue" not in h_ts:
             continue
-        issue_idx += 1
         rows.append(
             ReviewRow(
                 std_src_html=h_L,
                 std_tgt_html=html.escape(R),
                 trans_src_html=h_ts,
-                trans_tgt_html=html.escape(tt),
+                trans_tgt_html=html.escape(tt_nfc),
                 flagged=True,
                 glossary_html=gloss_col,
             )

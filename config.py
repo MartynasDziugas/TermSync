@@ -4,6 +4,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent
 
 class Config:
+    JSON_AS_ASCII = False
     SECRET_KEY = os.environ.get("SECRET_KEY", "termsync-dev-key-2026")
     DATABASE_URL = os.environ.get(
         "DATABASE_URL",
@@ -40,6 +41,12 @@ class Config:
     # CSV žodynas vertėjo peržiūroje: max eilučių iš DB, min. source ilgis simboliais
     GLOSSARY_REVIEW_MAX_ROWS = 8000
     GLOSSARY_REVIEW_MIN_SOURCE_LEN = 2
+    # Levenshteino atstumas (NFC + casefold tekstuose) šaltinio / target atitikčiai
+    _gloss_ed = os.environ.get("TERMSYNC_GLOSSARY_MAX_EDIT_DISTANCE", "3").strip()
+    try:
+        GLOSSARY_MAX_EDIT_DISTANCE = max(0, min(5, int(_gloss_ed)))
+    except ValueError:
+        GLOSSARY_MAX_EDIT_DISTANCE = 3
 
 class DevelopmentConfig(Config):
     DEBUG = True

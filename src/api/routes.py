@@ -18,7 +18,7 @@ from werkzeug.utils import secure_filename
 
 from config import config
 from src.parsers.docx_parser import DocxParser
-from src.services.csv_glossary_service import parse_glossary_csv
+from src.services.csv_glossary_service import decode_glossary_file_bytes, parse_glossary_csv
 from src.services.data_maintenance_service import (
     delete_translator_check_upload,
     purge_review_sessions,
@@ -28,6 +28,7 @@ from src.services.data_maintenance_service import (
 from src.services.persist_service import (
     count_all_glossary_rows,
     count_glossary_rows,
+    delete_glossary_batch,
     delete_review_session,
     get_glossary_batch,
     get_review_session,
@@ -39,6 +40,32 @@ from src.services.persist_service import (
     persist_review_session,
     review_rows_from_session,
 )
+
+
+def _import_glossary_from_upload(file_storage, *, has_header: bool) -> tuple[int, int]:
+    """Įrašo vienkartinį CSV žodyną į DB; grąžina (batch.id, eilučių skaičius)."""
+    if not file_storage or not file_storage.filename:
+        raise ValueError("Pasirinkite .csv žodyno failą.")
+    if not file_storage.filename.lower().endswith(".csv"):
+        raise ValueError("Žodynas turi būti .csv formatas.")
+    uid = uuid.uuid4().hex[:10]
+    dest_dir = config.UPLOAD_FOLDER / "glossary_csv" / uid
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / secure_filename(file_storage.filename)
+    file_storage.save(dest)
+    raw = dest.read_bytes()
+    text, enc_used = decode_glossary_file_bytes(raw)
+    rows, warns = parse_glossary_csv(StringIO(text), has_header=has_header)
+    for w in warns:
+        flash(w, "info")
+    if enc_used not in ("utf-8", "utf-8-sig"):
+        flash(
+            f"CSV koduotė: {enc_used}. Jei lietuviškos raidės neteisingos, naudokite „CSV UTF-8“.",
+            "info",
+        )
+    fname = secure_filename(file_storage.filename)
+    batch_id = persist_glossary_csv(filename=fname, rows=rows)
+    return batch_id, len(rows)
 from src.services.review_export_service import review_rows_to_csv_bytes
 from src.services.standard_train_service import load_latest_bundle
 from src.services.translator_resume_service import (
@@ -225,7 +252,7 @@ def check():
     has_model = load_latest_bundle() is not None
     if request.method == "GET":
         return render_template(
-            "check.html",
+            "doc_upload.html",
             has_model=has_model,
             error_message=None,
             rows=None,
@@ -238,10 +265,18 @@ def check():
     try:
         if not has_model:
             raise ValueError("Pirmiausia paleiskite mokymą su standarto poromis.")
+        source_lang = (request.form.get("source_lang") or "en").strip()[:16]
+        target_lang = (request.form.get("target_lang") or "lt").strip()[:16]
+        gl_f = request.files.get("glossary_csv")
+        if gl_f and gl_f.filename:
+            has_gl_header = request.form.get("glossary_has_header", "1") == "1"
+            batch_id, n_gl = _import_glossary_from_upload(gl_f, has_header=has_gl_header)
+            flash(f"Žodynas įrašytas į DB: {n_gl} eil. (partija #{batch_id}).", "success")
+        glossary_imported = bool(gl_f and gl_f.filename)
         ts_f = request.files.get("translator_src")
         tt_f = request.files.get("translator_tgt")
         if not ts_f or not ts_f.filename or not tt_f or not tt_f.filename:
-            raise ValueError("Įkelkite vertėjo source ir target .docx failus.")
+            raise ValueError("Įkelkite vertėjo source ir target .docx failus (žemiau sąraše).")
         uid = uuid.uuid4().hex[:12]
         base = config.UPLOAD_FOLDER / "translator_check" / uid
         base.mkdir(parents=True, exist_ok=True)
@@ -258,8 +293,10 @@ def check():
             translator_tgt_display=secure_filename(tt_f.filename),
             src_disk_name=ts_path.name,
             tgt_disk_name=tt_path.name,
+            source_lang=source_lang,
+            target_lang=target_lang,
         )
-        use_glossary = request.form.get("use_glossary") == "on"
+        use_glossary = glossary_imported or (request.form.get("use_glossary") == "on")
         rows, run_id = run_translator_review(
             ts_path, tt_path, use_glossary=use_glossary
         )
@@ -276,7 +313,7 @@ def check():
         return redirect(url_for("ui.check_session", sid=public_id))
     except Exception as e:
         return render_template(
-            "check.html",
+            "doc_upload.html",
             has_model=has_model,
             error_message=str(e),
             rows=None,
@@ -336,7 +373,7 @@ def check_session(sid: str):
         abort(404)
     rows = review_rows_from_session(rec)
     return render_template(
-        "check.html",
+        "doc_upload.html",
         has_model=True,
         error_message=None,
         rows=rows,
@@ -376,21 +413,9 @@ def glossary():
         up = request.files.get("csv_file")
         if not up or not up.filename:
             raise ValueError("Pasirinkite CSV failą.")
-        if not up.filename.lower().endswith(".csv"):
-            raise ValueError("Leidžiamas tik .csv formatas.")
         has_header = request.form.get("has_header", "1") == "1"
-        uid = uuid.uuid4().hex[:10]
-        dest_dir = config.UPLOAD_FOLDER / "glossary_csv" / uid
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        dest = dest_dir / secure_filename(up.filename)
-        up.save(dest)
-        text = dest.read_text(encoding="utf-8-sig")
-        rows, warns = parse_glossary_csv(StringIO(text), has_header=has_header)
-        fname = secure_filename(up.filename)
-        batch_id = persist_glossary_csv(filename=fname, rows=rows)
-        for w in warns:
-            flash(w, "info")
-        flash(f"Įrašyta į DB: {len(rows)} eilučių (partija #{batch_id}).", "success")
+        batch_id, nrows = _import_glossary_from_upload(up, has_header=has_header)
+        flash(f"Įrašyta į DB: {nrows} eilučių (partija #{batch_id}).", "success")
         return redirect(url_for("ui.glossary_batch", batch_id=batch_id))
     except Exception as e:
         return render_template(
@@ -398,6 +423,18 @@ def glossary():
             batches=list_glossary_batches(),
             error_message=str(e),
         )
+
+
+@bp.route("/glossary/batch/<int:batch_id>/delete", methods=["POST"])
+def glossary_batch_delete(batch_id: int):
+    if not delete_glossary_batch(batch_id):
+        abort(404)
+    flash(
+        "CSV glossoriaus partija pašalinta iš DB. Galite įkelti naują failą. "
+        "(Senas failas gali likti diske po data/uploads/glossary_csv — neprivaloma trinti.)",
+        "success",
+    )
+    return redirect(url_for("ui.glossary"))
 
 
 @bp.route("/glossary/batch/<int:batch_id>")

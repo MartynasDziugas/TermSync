@@ -31,6 +31,7 @@ main {
     max-width: 1200px;
     margin: 2rem auto;
     padding: 0 2rem;
+    padding-right: max(2rem, 2.75rem);
 }
 
 main:has(.page-wide) {
@@ -402,44 +403,139 @@ a.button-link:hover {
     display: none;
 }
 
-/* Globali krovimo linija (formos, fetch, vidinės nuorodos) */
-#global-loading-bar {
+/* Globalus krovimo indikatorius: dešinėje vertikaliai pildomas (pastelinė rožė) */
+#global-loading-side {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
+    top: 11vh;
+    right: 1rem;
+    height: 78vh;
+    width: 18px;
     z-index: 10000;
     pointer-events: none;
-    overflow: hidden;
-    visibility: hidden;
     opacity: 0;
-    transition: opacity 0.15s ease;
+    transition: opacity 0.2s ease;
 }
 
-#global-loading-bar.is-active {
-    visibility: visible;
+#global-loading-side.is-active {
     opacity: 1;
 }
 
-#global-loading-bar::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
+.global-loading-side-track {
+    position: relative;
     height: 100%;
-    width: 38%;
-    background: linear-gradient(90deg, #1565c0, #42a5f5);
-    animation: ts-load-sweep 0.85s ease-in-out infinite;
+    width: 100%;
+    border-radius: 12px;
+    background: #fce7f3;
+    border: 1px solid #f9c2e1;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
-@keyframes ts-load-sweep {
-    0% {
-        transform: translateX(-120%);
+.global-loading-side-fill {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 0%;
+    border-radius: 0 0 10px 10px;
+    /* Vienalytė ryškiai matoma pastelinė rožė (be gradiento) */
+    background: #f8b4d0;
+    will-change: height;
+}
+
+@media (max-width: 640px) {
+    #global-loading-side {
+        width: 12px;
+        right: 0.5rem;
     }
-    100% {
-        transform: translateX(320%);
+
+    main {
+        padding-right: 1.75rem;
     }
+}
+
+/* Doc Upload puslapis */
+.doc-upload-layout {
+    max-width: 100%;
+}
+
+.doc-upload-fields-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 1rem 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.doc-upload-glossary-meta {
+    border: 1px solid #eceff1;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.doc-upload-subhead {
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+    color: #34495e;
+}
+
+.doc-upload-staged {
+    margin: 1.25rem 0;
+    padding: 1rem;
+    background: #fafafa;
+    border-radius: 8px;
+    border: 1px solid #eceff1;
+}
+
+.doc-upload-staged-title {
+    font-size: 1rem;
+    margin: 0 0 0.75rem;
+    color: #455a64;
+}
+
+.doc-upload-staged-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.doc-upload-staged-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.45rem 0;
+    border-bottom: 1px solid #eceff1;
+}
+
+.doc-upload-staged-item:last-child {
+    border-bottom: none;
+}
+
+.doc-upload-staged-name {
+    font-size: 0.9rem;
+    color: #333;
+    word-break: break-word;
+}
+
+.doc-upload-remove {
+    flex-shrink: 0;
+    padding: 0.35rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid #f8bbd9;
+    background: #fce4ec;
+    color: #000;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.doc-upload-remove:hover {
+    background: #f8bbd9;
+}
+
+.doc-upload-submit {
+    margin-top: 0.5rem;
 }
 
 .review-grid-wrap {
@@ -466,9 +562,36 @@ table.review-grid {
     outline: 1px solid #bdc3c7;
 }
 
+/* EN–EN sutapimai: ta pati pastelinė rožinė visose eilutėse (šiek tiek ryškesnė) */
 .hl-issue {
-    border-radius: 2px;
+    background-color: #f5c6e4;
+    color: #1a1a1a;
+    border-radius: 3px;
+    padding: 0 2px;
+}
+
+/* Žodynas vertėjo source: tik geltona (be EN sutapimo) */
+.hl-gloss-source-match {
+    background-color: #fff9c4;
+    color: #1a1a1a;
+    text-decoration: underline;
+    text-decoration-color: #fdd835;
+    text-underline-offset: 2px;
+    border-radius: 3px;
     padding: 0 1px;
+}
+
+/* EN + žodynas tame pačiame segmente: rožinė viduje, ryškesnis pastelinio geltono rėmelis */
+.hl-issue-gloss-overlap {
+    display: inline-block;
+    border-radius: 4px;
+    box-shadow: 0 0 0 3px #ffd54f, 0 0 0 1px rgba(255, 193, 7, 0.35);
+    line-height: inherit;
+    vertical-align: baseline;
+}
+
+.hl-issue-gloss-overlap .hl-issue {
+    background-color: #f5c6e4;
 }
 
 .hl-exact {
@@ -500,10 +623,24 @@ table.review-grid {
     color: #b0bec5;
 }
 
+/* Žodyno stulpelyje sutampantis tekstas: pastelinė geltona + pabraukimas */
+.hl-gloss-snippet-term {
+    background-color: #fff9c4;
+    color: #1a1a1a;
+    text-decoration: underline;
+    text-decoration-color: #fdd835;
+    text-underline-offset: 2px;
+    border-radius: 3px;
+    padding: 0 2px;
+}
+
+/* Senesnė klasė (jei dar kur nors naudojama) */
 .hl-gloss {
-    background-color: #e8f5e9;
-    color: #1b5e20;
-    border-radius: 2px;
+    background-color: #fff9c4;
+    color: #1a1a1a;
+    text-decoration: underline;
+    text-decoration-color: #fdd835;
+    border-radius: 3px;
     padding: 0 2px;
 }
 

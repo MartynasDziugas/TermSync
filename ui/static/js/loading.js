@@ -1,28 +1,87 @@
 /**
- * Viršutinė krovimo linija: formų siuntimas, fetch, vidinės nuorodos.
+ * Krovimo indikatorius: dešinėje vertikaliai pildomas pastelinės rožinės juosta.
+ * Progresas nuolat juda (eksponentinis artėjimas), ne „užstringa“ ties fiksuotu %.
  */
 (function () {
-    const bar = document.getElementById("global-loading-bar");
-    if (!bar) return;
+    var side = document.getElementById("global-loading-side");
+    var fill = side && side.querySelector(".global-loading-side-fill");
+    if (!side || !fill) return;
 
-    let depth = 0;
+    var depth = 0;
+    var raf = 0;
+    var progress = 0;
+    var lastT = 0;
+    var finishing = false;
+    var finishToken = 0;
+
+    function cancelRaf() {
+        if (raf) {
+            window.cancelAnimationFrame(raf);
+            raf = 0;
+        }
+    }
+
+    /** Kol aktyvu: nuolat juda link 100% (be fiksuotos viršutinės ribos iki stop()). */
+    function tick(t) {
+        if (!side.classList.contains("is-active") || finishing) return;
+        if (!lastT) lastT = t;
+        var dt = Math.min(100, t - lastT);
+        lastT = t;
+        progress += (100 - progress) * (dt / 1000) * 1.22;
+        fill.style.height = progress + "%";
+        raf = window.requestAnimationFrame(tick);
+    }
 
     function start() {
         depth += 1;
-        bar.classList.add("is-active");
+        if (depth > 1) return;
+        finishing = false;
+        finishToken += 1;
+        cancelRaf();
+        progress = 0;
+        lastT = 0;
+        fill.style.height = "0%";
+        side.classList.add("is-active");
+        raf = window.requestAnimationFrame(tick);
     }
 
     function stop() {
         depth = Math.max(0, depth - 1);
-        if (depth === 0) {
-            bar.classList.remove("is-active");
+        if (depth > 0) return;
+        cancelRaf();
+        finishing = true;
+        var token = ++finishToken;
+        var startP = progress;
+        var t0 = performance.now();
+        var duration = 240;
+
+        function finishTween(now) {
+            if (token !== finishToken) return;
+            if (!side.classList.contains("is-active")) return;
+            var u = Math.min(1, (now - t0) / duration);
+            var eased = 1 - (1 - u) * (1 - u);
+            var h = startP + (100 - startP) * eased;
+            fill.style.height = h + "%";
+            if (u < 1) {
+                raf = window.requestAnimationFrame(finishTween);
+            } else {
+                window.setTimeout(function () {
+                    if (token !== finishToken) return;
+                    side.classList.remove("is-active");
+                    fill.style.height = "0%";
+                    progress = 0;
+                    finishing = false;
+                    lastT = 0;
+                }, 160);
+            }
         }
+        raf = window.requestAnimationFrame(finishTween);
     }
 
     document.addEventListener(
         "submit",
         function (e) {
-            const form = e.target;
+            var form = e.target;
             if (!(form instanceof HTMLFormElement)) return;
             if (form.getAttribute("data-no-global-loading") === "1") return;
             start();
@@ -30,7 +89,7 @@
         true
     );
 
-    const origFetch = window.fetch;
+    var origFetch = window.fetch;
     window.fetch = function () {
         start();
         var p = origFetch.apply(this, arguments);
@@ -68,7 +127,13 @@
 
     window.addEventListener("pageshow", function () {
         depth = 0;
-        bar.classList.remove("is-active");
+        finishToken += 1;
+        finishing = false;
+        cancelRaf();
+        side.classList.remove("is-active");
+        fill.style.height = "0%";
+        progress = 0;
+        lastT = 0;
     });
 
     window.TermSyncLoading = { start: start, stop: stop };
